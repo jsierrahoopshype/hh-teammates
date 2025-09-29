@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NBA Teammate Accolades</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+    .sticky-footer { position: sticky; bottom: 0; }
+  </style>
+</head>
+<body class="bg-white text-gray-900">
+  <header class="p-4 md:p-6 border-b">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-end gap-3">
+      <h1 class="text-2xl md:text-3xl font-bold">NBA Teammate Accolades</h1>
+      <p class="text-sm text-gray-600">Select a player to see each teammate's accolades in the seasons they played together.</p>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 md:p-6">
+    <!-- Controls -->
+    <div class="flex flex-col md:flex-row gap-3 md:items-end">
+      <div class="flex-1">
+        <label for="playerInput" class="block text-sm font-semibold mb-1">Player</label>
+        <input id="playerInput" type="text" placeholder="Start typing (e.g., Alex Caruso)"
+               class="w-full border rounded-xl p-3 outline-none focus:ring-2 focus:ring-black" autocomplete="off" />
+        <ul id="suggestions" class="mt-1 border rounded-xl hidden max-h-64 overflow-auto bg-white"></ul>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold mb-1">Season filter (optional)</label>
+        <select id="seasonFilter" class="border rounded-xl p-3">
+          <option value="">All seasons</option>
+        </select>
+      </div>
+      <button id="goBtn" class="px-5 py-3 rounded-xl bg-black text-white font-semibold">Show</button>
+    </div>
+
+    <!-- Results -->
+    <section id="results" class="mt-6 hidden">
+      <h2 id="resultsTitle" class="text-xl font-bold mb-3"></h2>
+      <div id="summary" class="text-sm text-gray-700 mb-3"></div>
+      <div id="tableWrap" class="overflow-x-auto border rounded-2xl">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100 sticky top-0">
+            <tr>
+              <th class="text-left p-3">Season</th>
+              <th class="text-left p-3">Team</th>
+              <th class="text-left p-3">Teammate</th>
+              <th class="text-left p-3">Accolades (awards & votes)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="sticky-footer bg-white border-t">
+    <div class="max-w-5xl mx-auto p-3 text-xs text-gray-600">
+      Tip: this is a static app. Data loads from JSON files under <code>/data/</code>.
+    </div>
+  </footer>
+
+  <script>
+    // ---- CONFIG ----
+    // Place these JSON files in /data next to this HTML:
+    //  - roster_by_team_season.json : {"2019-20|LAL":["LeBron James","Anthony Davis",...], ...}
+    //  - player_teams_by_season.json : {"Alex Caruso":{"2019-20":["LAL"],"2020-21":["LAL"],...}, ...}
+    //  - accolades_by_player_season.json : {"Shai Gilgeous-Alexander":{"2024-25":{"MVP":"Winner","MVP_votes_rank":1,...}},...}
+    const DATA_URL = "/data/"; // change if hosting JSONs elsewhere
+
+    const cache = { players:null, roster:null, teamsBySeason:null, accolades:null };
+
+    async function loadJSON(name){
+      const res = await fetch(DATA_URL + name, { cache: "force-cache" });
+      if(!res.ok) throw new Error("Failed to load " + name);
+      return res.json();
+    }
+
+    async function ensureData(){
+      if(!cache.roster){
+        [cache.roster, cache.teamsBySeason, cache.accolades] = await Promise.all([
+          loadJSON("roster_by_team_season.json"),
+          loadJSON("player_teams_by_season.json"),
+          loadJSON("accolades_by_player_season.json")
+        ]);
+        cache.players = Object.keys(cache.teamsBySeason).sort();
+      }
+    }
+
+    // ---- Autocomplete ----
+    const input = document.getElementById('playerInput');
+    const list = document.getElementById('suggestions');
+    const goBtn = document.getElementById('goBtn');
+    const seasonFilter = document.getElementById('seasonFilter');
+
+    function resetSeasonFilter(){
+      seasonFilter.innerHTML = '<option value="">All seasons</option>';
+    }
+
+    function showSuggestions(items){
+      list.innerHTML = items.slice(0, 50).map(name => `<li class="p-2 hover:bg-gray-100 cursor-pointer">${name}</li>`).join('');
+      list.classList.toggle('hidden', items.length === 0);
+      Array.from(list.children).forEach(li => li.addEventListener('click', () => {
+        input.value = li.textContent;
+        list.classList.add('hidden');
+        populateSeasons(li.textContent);
+      }));
+    }
+
+    function populateSeasons(player){
+      resetSeasonFilter();
+      const seasons = cache.teamsBySeason[player] ? Object.keys(cache.teamsBySeason[player]).sort() : [];
+      const opts = seasons.map(s => `<option value="${s}">${s}</option>`).join('');
+      seasonFilter.insertAdjacentHTML('beforeend', opts);
+    }
+
+    input.addEventListener('input', async () => {
+      await ensureData();
+      const q = input.value.trim().toLowerCase();
+      if(!q){ list.classList.add('hidden'); return; }
+      const matches = cache.players.filter(p => p.toLowerCase().includes(q));
+      showSuggestions(matches);
+    });
+
+    document.addEventListener('click', (e)=>{
+      if(!list.contains(e.target) && e.target!==input){ list.classList.add('hidden'); }
+    });
+
+    goBtn.addEventListener('click', async () => {
+      await ensureData();
+      const player = input.value.trim();
+      if(!player || !cache.teamsBySeason[player]){ alert('Pick a valid player from suggestions.'); return; }
+      render(player, seasonFilter.value || null);
+    });
+
+    async function render(player, season){
+      const tbody = document.getElementById('tbody');
+      const results = document.getElementById('results');
+      const title = document.getElementById('resultsTitle');
+      const summary = document.getElementById('summary');
+
+      title.textContent = `Teammate accolades for ${player}`;
+      tbody.innerHTML = '';
+
+      let rows = [];
+      const seasons = season ? [season] : Object.keys(cache.teamsBySeason[player] || {});
+      for(const s of seasons){
+        const teams = cache.teamsBySeason[player][s] || [];
+        for(const t of teams){
+          const roster = cache.roster[`${s}|${t}`] || [];
+          for(const tm of roster){
+            if(tm === player) continue;
+            const acc = (cache.accolades[tm] && cache.accolades[tm][s]) || null;
+            rows.push({ season:s, team:t, mate:tm, accolades:formatAcc(acc) });
+          }
+        }
+      }
+
+      rows.sort((a,b)=> a.season.localeCompare(b.season) || a.team.localeCompare(b.team) || a.mate.localeCompare(b.mate));
+
+      for(const row of rows){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="p-3 whitespace-nowrap">${row.season}</td>
+          <td class="p-3 whitespace-nowrap">${row.team}</td>
+          <td class="p-3">${row.mate}</td>
+          <td class="p-3">${row.accolades || '<span class="text-gray-400">—</span>'}</td>`;
+        tbody.appendChild(tr);
+      }
+
+      summary.textContent = `${rows.length} teammate-season rows`;
+      results.classList.remove('hidden');
+      window.scrollTo({ top: results.offsetTop - 16, behavior: 'smooth' });
+    }
+
+    function formatAcc(acc){
+      if(!acc) return '';
+      const parts = [];
+      for(const [k,v] of Object.entries(acc)){
+        parts.push(`${k}: ${v}`);
+      }
+      return parts.join(' · ');
+    }
+  </script>
+</body>
+</html>
