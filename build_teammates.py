@@ -5,16 +5,16 @@ Reads the two All-Time Database CSVs and writes data/teammates.json,
 the single file the front-end loads.
 
 Run:  python build_teammates.py
-Inputs expected in the same folder (override with --awards / --stats):
-    All-Time_Database_2_0_-_Awards.csv
-    All-Time_Database_2_0_-_RS_Stats__3_.csv
-Output:
-    data/teammates.json
+
+Per player the output now carries, on top of the Teammates Score:
+  rings    -> the player's OWN NBA titles (for the trophy emojis)
+  mvp      -> # of MVP seasons won by teammates while they played together
+  allnba   -> # of All-NBA selections (1st+2nd+3rd) by those teammates
+  allstar  -> # of All-Star selections by those teammates
 """
 import csv, json, os, argparse
 from collections import defaultdict
 
-# --- Scoring table (edit here OR in the front-end; front-end recomputes the total) ---
 SCORES = {
     "Most Valuable Player": 10, "Finals MVP": 10,
     "All-NBA First Team": 4, "Defensive Player of the Year": 4,
@@ -25,6 +25,7 @@ SCORES = {
     "Most Improved Player": 0.25, "All-Rookie First Team": 0.25,
     "All-Rookie Second Team": 0.125,
 }
+ALLNBA = {"All-NBA First Team", "All-NBA Second Team", "All-NBA Third Team"}
 
 def main():
     ap = argparse.ArgumentParser()
@@ -33,17 +34,20 @@ def main():
     ap.add_argument("--out",    default="data/teammates.json")
     args = ap.parse_args()
 
-    # awards_by[(player, year)] = [award, ...]  (scored awards only)
-    awards_by = defaultdict(list)
+    awards_by = defaultdict(list)   # (player, year) -> [scored award, ...]
+    rings = defaultdict(int)        # player -> own NBA titles
     with open(args.awards, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             a = (row.get("AWARD") or "").strip()
             p = (row.get("PLAYER / COACH") or "").strip()
             y = (row.get("YEAR") or "").strip()
-            if a in SCORES and p and y.isdigit():
+            if not p:
+                continue
+            if a == "NBA Champion":
+                rings[p] += 1
+            if a in SCORES and y.isdigit():
                 awards_by[(p, int(y))].append(a)
 
-    # rosters[(year, team)] = set(players); player_seasons[player] = set((year, team))
     rosters = defaultdict(set)
     pseasons = defaultdict(set)
     pyears = defaultdict(set)
@@ -52,7 +56,7 @@ def main():
             p = (row.get("PLAYER") or "").strip()
             y = (row.get("YEAR") or "").strip()
             t = (row.get("TEAM") or "").strip()
-            if p and y.isdigit() and t:        # skip blank teams
+            if p and y.isdigit() and t:
                 yr = int(y)
                 rosters[(yr, t)].add(p)
                 pseasons[p].add((yr, t))
@@ -62,6 +66,7 @@ def main():
     for p, seasons in pseasons.items():
         seasons_detail = []
         total = 0.0
+        cMvp = cAllNba = cAllStar = 0
         for (yr, t) in sorted(seasons):
             mates = []
             spts = 0.0
@@ -73,6 +78,10 @@ def main():
                     continue
                 mp = round(sum(SCORES[a] for a in aws), 3)
                 spts += mp
+                for a in aws:
+                    if a == "Most Valuable Player": cMvp += 1
+                    elif a in ALLNBA: cAllNba += 1
+                    elif a == "All-Star": cAllStar += 1
                 mates.append({"n": mate, "a": sorted(aws, key=lambda x: -SCORES[x]), "p": mp})
             if mates:
                 mates.sort(key=lambda m: -m["p"])
@@ -84,10 +93,11 @@ def main():
             "score": round(total, 3),
             "seasons": nseasons,
             "perSeason": round(total / nseasons, 3) if nseasons else 0,
+            "rings": rings.get(p, 0),
+            "mvp": cMvp, "allnba": cAllNba, "allstar": cAllStar,
             "detail": seasons_detail,
         })
 
-    # ranks by career score
     players.sort(key=lambda x: -x["score"])
     for i, pl in enumerate(players, 1):
         pl["rank"] = i
@@ -99,7 +109,7 @@ def main():
 
     size = os.path.getsize(args.out)
     print(f"Wrote {args.out}: {len(players)} players, {size/1024:.0f} KB")
-    print("Top 5:", ", ".join(f'{pl["name"]} {pl["score"]:.1f}' for pl in players[:5]))
+    print("Top 5:", ", ".join(f'{pl["name"]} {pl["score"]:.1f} ({pl["rings"]} rings)' for pl in players[:5]))
 
 if __name__ == "__main__":
     main()
