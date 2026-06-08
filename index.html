@@ -1,191 +1,508 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NBA Teammate Accolades</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
-    .sticky-footer { position: sticky; bottom: 0; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NBA Teammates Score | HoopsMatic</title>
+<meta name="description" content="How well surrounded has every player in NBA history been? We score every teammate's accolades, season by season." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --paper:#f4f0e7; --panel:#fffdf8; --ink:#16130d; --ink-soft:#4b463b;
+    --line:#ddd5c4; --accent:#e8512b; --accent-2:#1c5fd6; --gold:#caa23a;
+    --shadow:0 1px 0 #fff inset, 0 14px 30px -18px rgba(20,17,9,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:Archivo, system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 12% -10%, rgba(232,81,43,.07), transparent 40%),
+                     radial-gradient(circle at 100% 0%, rgba(28,95,214,.06), transparent 35%);
+  }
+  .num{font-variant-numeric:tabular-nums}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 18px}
+
+  header.site{border-bottom:2px solid var(--ink);background:var(--paper);position:sticky;top:0;z-index:50}
+  .top{display:flex;align-items:center;gap:14px;padding:14px 0 12px}
+  .brand{font-family:Anton;font-size:26px;letter-spacing:.5px;line-height:.95;text-transform:uppercase;cursor:pointer}
+  .brand .b2{color:var(--accent)}
+  .tag{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.14em;margin-top:2px}
+  .searchbox{margin-left:auto;position:relative;width:min(340px,46vw)}
+  .searchbox input{width:100%;border:1.5px solid var(--ink);background:var(--panel);border-radius:0;
+    padding:11px 12px;font:600 14px Archivo;outline:none}
+  .searchbox input:focus{box-shadow:3px 3px 0 var(--accent)}
+  .sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1.5px solid var(--ink);
+    max-height:340px;overflow:auto;display:none;z-index:60;box-shadow:var(--shadow);list-style:none;margin:0;padding:0}
+  .sugg li{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;font-size:14px;border-bottom:1px solid var(--line)}
+  .sugg li:last-child{border-bottom:0}
+  .sugg li:hover,.sugg li.active{background:var(--accent);color:#fff}
+  .sugg li .r{font:700 12px Archivo;opacity:.6}
+  .sugg li:hover .r{opacity:.9}
+
+  h2.kick{font:800 12px Archivo;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:34px 0 10px}
+  .muted{color:var(--ink-soft)}
+  .pill{display:inline-block;border:1.5px solid var(--ink);padding:4px 9px;font:700 11px Archivo;
+    text-transform:uppercase;letter-spacing:.06em;cursor:pointer;background:var(--panel)}
+  .pill.on{background:var(--ink);color:var(--paper)}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);
+    font:700 13px Archivo;padding:9px 14px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .btn:hover{box-shadow:3px 3px 0 var(--accent)}
+
+  .lead-head h1{font-family:Anton;font-size:clamp(34px,6vw,56px);line-height:.92;margin:18px 0 0;text-transform:uppercase}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+  .controls .grp{display:flex;gap:6px}
+  .minwrap{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft)}
+  .minwrap input{width:54px;border:1.5px solid var(--ink);padding:6px;font:600 13px Archivo;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1.5px solid var(--ink)}
+  thead th{font:800 11px Archivo;text-transform:uppercase;letter-spacing:.08em;text-align:left;padding:11px 12px;
+    background:var(--ink);color:var(--paper);position:sticky;top:64px;z-index:1}
+  tbody td{padding:11px 12px;border-top:1px solid var(--line);font-size:14px}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#fbf6ea}
+  .rk{font-family:Anton;font-size:18px;width:54px;color:var(--ink-soft)}
+  .rk.top{color:var(--accent)}
+  .pname{font-weight:700}
+  .scorecell{font-family:Anton;font-size:20px;text-align:right;white-space:nowrap}
+  td.r,th.r{text-align:right}
+
+  .phead{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;margin-top:18px;
+    border:1.5px solid var(--ink);background:var(--panel);padding:20px;box-shadow:var(--shadow)}
+  .phead .pn{font-family:Anton;font-size:clamp(30px,5vw,48px);line-height:.92;text-transform:uppercase}
+  .phead .sub{margin-top:6px;color:var(--ink-soft);font-size:13px}
+  .bigscore{text-align:right}
+  .bigscore .v{font-family:Anton;font-size:clamp(44px,8vw,72px);line-height:.85;color:var(--accent)}
+  .bigscore .l{font:800 11px Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  .pactions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .card{border:1.5px solid var(--ink);background:var(--panel);padding:14px}
+  .card .ck{font:800 10px Archivo;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .card .cv{font-family:Anton;font-size:22px;margin-top:6px;line-height:1}
+  .card .cd{font-size:12px;color:var(--ink-soft);margin-top:6px}
+
+  .bk{margin-top:8px}
+  .bar{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:13px}
+  .bar .lab{width:170px;flex:none;font-weight:600}
+  .bar .track{flex:1;height:14px;background:#e9e2d2;border:1px solid var(--line);position:relative}
+  .bar .fill{height:100%;background:var(--accent)}
+  .bar .val{width:62px;text-align:right;font-family:Anton;font-size:14px}
+
+  details.season{border:1.5px solid var(--ink);background:var(--panel);margin-top:8px}
+  details.season>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:11px 14px;font-weight:700}
+  details.season>summary::-webkit-details-marker{display:none}
+  details.season>summary .yr{font-family:Anton;font-size:18px;width:78px}
+  details.season>summary .tm{color:var(--ink-soft);font-weight:600}
+  details.season>summary .sp{margin-left:auto;font-family:Anton;font-size:18px;color:var(--accent)}
+  .mates{padding:4px 14px 12px}
+  .mate{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;align-items:baseline}
+  .mate .mn{font-weight:700;width:190px;flex:none}
+  .mate .ma{color:var(--ink-soft);flex:1}
+  .mate .mp{font-family:Anton;font-size:15px;width:50px;text-align:right}
+
+  .hth{display:grid;grid-template-columns:1fr 64px 1fr;gap:0;margin-top:18px;align-items:stretch}
+  .hcol{border:1.5px solid var(--ink);background:var(--panel);padding:18px}
+  .hcol.l{border-right:0}.hcol.r{border-left:0}
+  .vsbadge{display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--paper);font-family:Anton;font-size:22px}
+  .hcol .hn{font-family:Anton;font-size:clamp(20px,3vw,30px);line-height:.95;text-transform:uppercase;min-height:56px}
+  .hcol .hs{font-family:Anton;font-size:clamp(40px,7vw,64px);line-height:.85;margin-top:8px}
+  .hcol.win .hs{color:var(--accent)}
+  .hcol .hsub{font-size:12px;color:var(--ink-soft);margin-top:4px}
+  .hcol .htop{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  .hcol .htop .t{font:800 10px Archivo;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+  .hcol .htop .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+  .hcol .htop .row .p{font-family:Anton;font-size:14px}
+  .hpick{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .hpick input{border:1.5px solid var(--ink);padding:9px 11px;font:600 14px Archivo;background:var(--panel);width:min(240px,44vw)}
+
+  #cardModal{position:fixed;inset:0;background:rgba(20,17,9,.6);display:none;z-index:100;align-items:center;justify-content:center;padding:18px}
+  #cardModal.open{display:flex}
+  .modalbox{max-width:520px;width:100%}
+  .modalbar{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .sharecard{width:500px;height:500px;background:#16130d;color:#f4f0e7;position:relative;overflow:hidden;
+    font-family:Archivo;padding:0;margin:0 auto}
+  .sharecard .accentbar{position:absolute;top:0;left:0;right:0;height:14px;background:var(--accent)}
+  .sharecard .sc-in{padding:34px 32px}
+  .sharecard .sc-kick{font:800 12px Archivo;letter-spacing:.22em;text-transform:uppercase;color:#caa23a;margin-top:8px}
+  .sharecard .sc-name{font-family:Anton;font-size:46px;line-height:.92;text-transform:uppercase;margin:8px 0 0}
+  .sharecard .sc-score{font-family:Anton;font-size:120px;line-height:.8;color:var(--accent);margin:18px 0 0}
+  .sharecard .sc-slabel{font:800 12px Archivo;letter-spacing:.2em;text-transform:uppercase;color:#9a9384}
+  .sharecard .sc-mates{position:absolute;left:32px;right:32px;bottom:30px}
+  .sharecard .sc-mates .h{font:800 11px Archivo;letter-spacing:.16em;text-transform:uppercase;color:#9a9384;margin-bottom:8px}
+  .sharecard .sc-mate{display:flex;justify-content:space-between;font-size:15px;padding:5px 0;border-top:1px solid #2c2820}
+  .sharecard .sc-mate .mp{font-family:Anton;color:#caa23a}
+  .sharecard .sc-foot{position:absolute;right:30px;top:30px;font:800 13px Archivo;letter-spacing:.1em;text-transform:uppercase;color:#f4f0e7}
+  .sharecard .sc-foot b{color:var(--accent)}
+
+  footer{border-top:2px solid var(--ink);margin-top:48px;padding:18px 0 40px}
+  footer .wrap{font-size:12px;color:var(--ink-soft)}
+  .loading{padding:60px 0;text-align:center;color:var(--ink-soft);font-weight:600}
+
+  @media(max-width:720px){
+    .cards{grid-template-columns:1fr}
+    .phead{grid-template-columns:1fr}
+    .bigscore{text-align:left}
+    .hth{grid-template-columns:1fr;gap:0}
+    .hcol.l,.hcol.r{border:1.5px solid var(--ink)}
+    .mate .mn{width:130px}
+    .bar .lab{width:120px}
+    thead th{top:60px}
+  }
+</style>
 </head>
-<body class="bg-white text-gray-900">
-  <header class="p-4 md:p-6 border-b">
-    <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-end gap-3">
-      <h1 class="text-2xl md:text-3xl font-bold">NBA Teammate Accolades</h1>
-      <p class="text-sm text-gray-600">Select a player to see each teammate's accolades in the seasons they played together.</p>
+<body>
+<header class="site">
+  <div class="wrap top">
+    <div>
+      <div class="brand" onclick="go('')">TEAMMATES<span class="b2"> SCORE</span></div>
+      <div class="tag">HoopsMatic &middot; how much help did he have?</div>
     </div>
-  </header>
+    <div class="searchbox">
+      <input id="search" type="text" placeholder="Search any player..." autocomplete="off" />
+      <ul id="sugg" class="sugg"></ul>
+    </div>
+  </div>
+</header>
 
-  <main class="max-w-5xl mx-auto p-4 md:p-6">
-    <!-- Controls -->
-    <div class="flex flex-col md:flex-row gap-3 md:items-end">
-      <div class="flex-1">
-        <label for="playerInput" class="block text-sm font-semibold mb-1">Player</label>
-        <input id="playerInput" type="text" placeholder="Start typing (e.g., Alex Caruso)"
-               class="w-full border rounded-xl p-3 outline-none focus:ring-2 focus:ring-black" autocomplete="off" />
-        <ul id="suggestions" class="mt-1 border rounded-xl hidden max-h-64 overflow-auto bg-white"></ul>
+<main id="view" class="wrap"><div class="loading">Loading every roster in NBA history...</div></main>
+
+<footer><div class="wrap">
+  Teammates Score awards points for each accolade a player's teammates earned in the seasons they played together
+  (MVP &amp; Finals MVP 10, All-NBA 1st 4, DPOY 4, down to All-Rookie 2nd 0.125). Season-level rosters, so deadline-trade overlaps are counted. Data: All-Time Database 2.0.
+</div></footer>
+
+<div id="cardModal" onclick="if(event.target===this)closeCard()">
+  <div class="modalbox">
+    <div id="cardHost"></div>
+    <div class="modalbar">
+      <button class="btn" onclick="downloadCard()">Download PNG</button>
+      <button class="btn ghost" onclick="closeCard()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA_URL = "data/teammates.json";
+const TEAM_COLORS = {
+  ATL:"#e03a3e",BOS:"#007a33",BKN:"#000000",CHA:"#1d1160",CHI:"#ce1141",CLE:"#860038",
+  DAL:"#00538c",DEN:"#0e2240",DET:"#c8102e",GSW:"#1d428a",HOU:"#ce1141",IND:"#fdbb30",
+  LAC:"#c8102e",LAL:"#552583",MEM:"#5d76a9",MIA:"#98002e",MIL:"#00471b",MIN:"#0c2340",
+  NOP:"#0c2340",NYK:"#006bb6",OKC:"#007ac1",ORL:"#0077c0",PHI:"#006bb6",PHX:"#1d1160",
+  POR:"#e03a3e",SAC:"#5a2d81",SAS:"#000000",TOR:"#ce1141",UTA:"#002b5c",WAS:"#002b5c",
+  SEA:"#00653a",VAN:"#5d76a9",NJN:"#002a60",CHH:"#00788c",WSB:"#002b5c",KCK:"#5a2d81",
+  SDC:"#c8102e",NOH:"#0c2340",NOK:"#0c2340",BAL:"#002b5c",CIN:"#e03a3e",STL:"#e03a3e",
+  SFW:"#1d428a",PHW:"#006bb6",SYR:"#007a33",MNL:"#552583",ROC:"#e03a3e",FTW:"#c8102e"
+};
+const teamColor = t => TEAM_COLORS[t] || "#3a342a";
+
+let DB = null, BY_NAME = {}, SCORES = {};
+const fmt = n => { const r = Math.round(n*1000)/1000; if(r % 1 === 0) return r.toString(); return parseFloat(r.toFixed(3)).toString(); };
+const enc = s => encodeURIComponent(s);
+
+async function boot(){
+  try{
+    const res = await fetch(DATA_URL, {cache:"force-cache"});
+    DB = await res.json();
+    SCORES = DB.scores;
+    DB.players.forEach(p => BY_NAME[p.name] = p);
+    route();
+  }catch(e){
+    document.getElementById('view').innerHTML =
+      '<div class="loading">Could not load data/teammates.json. Run build_teammates.py and confirm the file is in /data.</div>';
+  }
+}
+
+function aggTeammates(p){
+  const m = {};
+  for(const s of p.detail){
+    for(const mate of s.mates){
+      if(!m[mate.n]) m[mate.n] = {n:mate.n, p:0, years:[], awards:new Set()};
+      m[mate.n].p += mate.p;
+      m[mate.n].years.push(s.y);
+      mate.a.forEach(a=>m[mate.n].awards.add(a));
+    }
+  }
+  return Object.values(m).sort((a,b)=>b.p-a.p);
+}
+function awardBreakdown(p){
+  const b = {};
+  for(const s of p.detail) for(const mate of s.mates) for(const a of mate.a){
+    b[a] = (b[a]||0) + SCORES[a];
+  }
+  return Object.entries(b).sort((x,y)=>y[1]-x[1]);
+}
+function bestSeason(p){
+  let best=null; for(const s of p.detail) if(!best||s.pts>best.pts) best=s; return best;
+}
+
+function go(hash){ location.hash = hash; }
+window.addEventListener('hashchange', route);
+
+function route(){
+  if(!DB) return;
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/,''));
+  const parts = h.split('/');
+  if(parts[0]==='p' && parts[1]) return renderPlayer(parts.slice(1).join('/'));
+  if(parts[0]==='vs') return renderHTH(parts[1]?decodeURIComponent(parts[1]):'', parts[2]?decodeURIComponent(parts[2]):'');
+  renderLeaderboard();
+}
+
+let lbMode = 'career', lbMin = 3, lbFilter = '';
+function renderLeaderboard(){
+  const v = document.getElementById('view');
+  v.innerHTML = `
+    <div class="lead-head"><h1>The most<br>surrounded players ever</h1></div>
+    <p class="muted" style="max-width:620px;margin:12px 0 0">Every point here was earned by someone else. We add up the accolades of every teammate a player shared a season with. The all-time list is a monument to glue guys on great teams.</p>
+    <div class="controls">
+      <div class="grp">
+        <span class="pill ${lbMode==='career'?'on':''}" onclick="setMode('career')">Career total</span>
+        <span class="pill ${lbMode==='perSeason'?'on':''}" onclick="setMode('perSeason')">Per season</span>
       </div>
+      <div class="minwrap" id="minwrap" style="display:${lbMode==='perSeason'?'flex':'none'}">
+        min seasons <input id="minInput" class="num" type="number" min="1" value="${lbMin}" onchange="setMin(this.value)">
+      </div>
+      <div class="minwrap" style="margin-left:auto">filter <input id="lbFilter" placeholder="name" value="${lbFilter}" oninput="lbFilter=this.value;fillRows()" style="width:140px;border:1.5px solid var(--ink);padding:6px;font:600 13px Archivo;background:var(--panel)"></div>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Player</th><th class="r">Seasons</th><th class="r">${lbMode==='career'?'Teammates Score':'Per-season score'}</th></tr></thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    <p class="muted" id="lbCount" style="margin-top:10px"></p>`;
+  fillRows();
+}
+function setMode(m){ lbMode=m; renderLeaderboard(); }
+function setMin(v){ lbMin=Math.max(1,parseInt(v)||1); fillRows(); }
+function fillRows(){
+  let list = DB.players.slice();
+  if(lbMode==='perSeason'){
+    list = list.filter(p=>p.seasons>=lbMin && p.score>0).sort((a,b)=>b.perSeason-a.perSeason);
+  }else{
+    list = list.filter(p=>p.score>0);
+  }
+  if(lbFilter.trim()){
+    const q=lbFilter.toLowerCase();
+    list = list.filter(p=>p.name.toLowerCase().includes(q));
+  }
+  const show = list.slice(0,150);
+  const val = p => lbMode==='career'? p.score : p.perSeason;
+  document.getElementById('lbBody').innerHTML = show.map((p,i)=>`
+    <tr onclick="go('/p/${enc(p.name)}')">
+      <td class="rk ${i<3?'top':''}">${i+1}</td>
+      <td class="pname">${p.name}</td>
+      <td class="r num">${p.seasons}</td>
+      <td class="scorecell">${fmt(val(p))}</td>
+    </tr>`).join('');
+  document.getElementById('lbCount').textContent =
+    `${list.length.toLocaleString()} players with a score${lbMode==='perSeason'?` (min ${lbMin} seasons)`:''}. Showing top ${show.length}.`;
+}
+
+function renderPlayer(name){
+  const p = BY_NAME[name];
+  const v = document.getElementById('view');
+  if(!p){ v.innerHTML=`<div class="loading">No player named "${name}".</div>`; return; }
+  const mates = aggTeammates(p);
+  const bk = awardBreakdown(p);
+  const best = bestSeason(p);
+  const topMate = mates[0];
+  const maxBk = bk.length? bk[0][1] : 1;
+
+  v.innerHTML = `
+    <div class="phead">
       <div>
-        <label class="block text-sm font-semibold mb-1">Season filter (optional)</label>
-        <select id="seasonFilter" class="border rounded-xl p-3">
-          <option value="">All seasons</option>
-        </select>
+        <div class="pn">${p.name}</div>
+        <div class="sub">${p.seasons} seasons played &middot; ${p.detail.length} of them alongside an award winner</div>
+        <div class="pactions">
+          <button class="btn" onclick="openCard('${enc(p.name)}')">Share card</button>
+          <button class="btn ghost" onclick="go('/vs/${enc(p.name)}/')">Compare &rarr;</button>
+        </div>
       </div>
-      <button id="goBtn" class="px-5 py-3 rounded-xl bg-black text-white font-semibold">Show</button>
+      <div class="bigscore">
+        <div class="v num">${fmt(p.score)}</div>
+        <div class="l">Teammates Score</div>
+        <div class="sub num">Career rank #${p.rank} &middot; ${fmt(p.perSeason)}/season</div>
+      </div>
     </div>
 
-    <!-- Results -->
-    <section id="results" class="mt-6 hidden">
-      <h2 id="resultsTitle" class="text-xl font-bold mb-3"></h2>
-      <div id="summary" class="text-sm text-gray-700 mb-3"></div>
-      <div id="tableWrap" class="overflow-x-auto border rounded-2xl">
-        <table class="min-w-full text-sm">
-          <thead class="bg-gray-100 sticky top-0">
-            <tr>
-              <th class="text-left p-3">Season</th>
-              <th class="text-left p-3">Team</th>
-              <th class="text-left p-3">Teammate</th>
-              <th class="text-left p-3">Accolades (awards & votes)</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
+    <div class="cards">
+      <div class="card">
+        <div class="ck">Most valuable teammate</div>
+        <div class="cv">${topMate?topMate.n:'\u2014'}</div>
+        <div class="cd">${topMate?`${fmt(topMate.p)} pts across ${new Set(topMate.years).size} shared seasons`:'No award-winning teammates'}</div>
       </div>
-    </section>
-  </main>
-
-  <footer class="sticky-footer bg-white border-t">
-    <div class="max-w-5xl mx-auto p-3 text-xs text-gray-600">
-      Tip: this is a static app. Data loads from JSON files under <code>/data/</code>.
+      <div class="card">
+        <div class="ck">Most loaded season</div>
+        <div class="cv">${best?best.y+' '+best.t:'\u2014'}</div>
+        <div class="cd">${best?`${fmt(best.pts)} pts from ${best.mates.length} decorated teammate${best.mates.length>1?'s':''}`:''}</div>
+      </div>
+      <div class="card">
+        <div class="ck">Top accolade source</div>
+        <div class="cv">${bk.length?prettyAward(bk[0][0]):'\u2014'}</div>
+        <div class="cd">${bk.length?`${fmt(bk[0][1])} of his ${fmt(p.score)} pts`:''}</div>
+      </div>
     </div>
-  </footer>
 
-  <script>
-    // ---- CONFIG ----
-    // Place these JSON files in /data next to this HTML:
-    //  - roster_by_team_season.json : {"2019-20|LAL":["LeBron James","Anthony Davis",...], ...}
-    //  - player_teams_by_season.json : {"Alex Caruso":{"2019-20":["LAL"],"2020-21":["LAL"],...}, ...}
-    //  - accolades_by_player_season.json : {"Shai Gilgeous-Alexander":{"2024-25":{"MVP":"Winner","MVP_votes_rank":1,...}},...}
-    const DATA_URL = "/data/"; // change if hosting JSONs elsewhere
+    <h2 class="kick">Where the points came from</h2>
+    <div class="bk">
+      ${bk.map(([a,val])=>`
+        <div class="bar">
+          <div class="lab">${prettyAward(a)}</div>
+          <div class="track"><div class="fill" style="width:${(val/maxBk*100).toFixed(1)}%"></div></div>
+          <div class="val num">${fmt(val)}</div>
+        </div>`).join('') || '<p class="muted">No teammate ever won a scored accolade while playing here.</p>'}
+    </div>
 
-    const cache = { players:null, roster:null, teamsBySeason:null, accolades:null };
+    <h2 class="kick">Season by season</h2>
+    ${p.detail.slice().reverse().map(s=>`
+      <details class="season">
+        <summary><span class="yr num">${s.y}</span><span class="tm">${s.t}</span><span class="sp num">+${fmt(s.pts)}</span></summary>
+        <div class="mates">
+          ${s.mates.map(m=>`
+            <div class="mate">
+              <span class="mn">${m.n}</span>
+              <span class="ma">${m.a.map(prettyAward).join(', ')}</span>
+              <span class="mp num">${fmt(m.p)}</span>
+            </div>`).join('')}
+        </div>
+      </details>`).join('') || '<p class="muted">No qualifying seasons.</p>'}
+  `;
+  window.scrollTo({top:0});
+}
+function prettyAward(a){
+  return a.replace('Most Valuable Player','MVP').replace('Defensive Player of the Year','DPOY')
+          .replace('Sixth Man of the Year','6th Man').replace('Most Improved Player','MIP')
+          .replace('All-NBA First Team','All-NBA 1st').replace('All-NBA Second Team','All-NBA 2nd')
+          .replace('All-NBA Third Team','All-NBA 3rd')
+          .replace('All-Defensive First Team','All-D 1st').replace('All-Defensive Second Team','All-D 2nd')
+          .replace('All-Rookie First Team','All-Rookie 1st').replace('All-Rookie Second Team','All-Rookie 2nd')
+          .replace('Rookie of the Year','ROY');
+}
 
-    async function loadJSON(name){
-      const res = await fetch(DATA_URL + name, { cache: "force-cache" });
-      if(!res.ok) throw new Error("Failed to load " + name);
-      return res.json();
-    }
+function renderHTH(a,b){
+  const v = document.getElementById('view');
+  const pa = a?BY_NAME[a]:null, pb = b?BY_NAME[b]:null;
+  v.innerHTML = `
+    <h2 class="kick">Head to head &middot; who had more help?</h2>
+    <div class="hpick">
+      <input id="hA" placeholder="Player A" value="${pa?pa.name:''}">
+      <input id="hB" placeholder="Player B" value="${pb?pb.name:''}">
+      <button class="btn" onclick="hthGo()">Compare</button>
+    </div>
+    <div id="hthResult"></div>`;
+  attachHthAutocomplete();
+  if(pa&&pb) drawHTH(pa,pb);
+}
+function hthGo(){
+  const a=document.getElementById('hA').value.trim(), b=document.getElementById('hB').value.trim();
+  if(BY_NAME[a]&&BY_NAME[b]) go(`/vs/${enc(a)}/${enc(b)}`);
+  else alert('Pick two valid players.');
+}
+function drawHTH(pa,pb){
+  const ma=aggTeammates(pa).slice(0,5), mb=aggTeammates(pb).slice(0,5);
+  const awin = pa.score>=pb.score;
+  const diff = Math.abs(pa.score-pb.score);
+  const col = (p,top,win,side)=>`
+    <div class="hcol ${win?'win':''} ${side}">
+      <div class="hn">${p.name}</div>
+      <div class="hs num">${fmt(p.score)}</div>
+      <div class="hsub num">rank #${p.rank} &middot; ${fmt(p.perSeason)}/season &middot; ${p.seasons} seasons</div>
+      <div class="htop">
+        <div class="t">Biggest teammate contributors</div>
+        ${top.map(m=>`<div class="row"><span>${m.n}</span><span class="p num">${fmt(m.p)}</span></div>`).join('')}
+      </div>
+    </div>`;
+  document.getElementById('hthResult').innerHTML = `
+    <div class="hth">
+      ${col(pa,ma,awin,'l')}
+      <div class="vsbadge">VS</div>
+      ${col(pb,mb,!awin,'r')}
+    </div>
+    <p class="muted" style="margin-top:12px">${awin?pa.name:pb.name} was better surrounded by <b>${fmt(diff)}</b> points.</p>`;
+}
 
-    async function ensureData(){
-      if(!cache.roster){
-        [cache.roster, cache.teamsBySeason, cache.accolades] = await Promise.all([
-          loadJSON("roster_by_team_season.json"),
-          loadJSON("player_teams_by_season.json"),
-          loadJSON("accolades_by_player_season.json")
-        ]);
-        cache.players = Object.keys(cache.teamsBySeason).sort();
-      }
-    }
+function matchNames(q,limit=40){
+  q=q.toLowerCase();
+  const starts=[],incl=[];
+  for(const p of DB.players){
+    const n=p.name.toLowerCase();
+    if(n.startsWith(q)) starts.push(p); else if(n.includes(q)) incl.push(p);
+    if(starts.length>limit) break;
+  }
+  return starts.concat(incl).slice(0,limit);
+}
+const searchEl=document.getElementById('search'), suggEl=document.getElementById('sugg');
+let sIdx=-1, sList=[];
+searchEl.addEventListener('input',()=>{
+  const q=searchEl.value.trim(); if(!q){suggEl.style.display='none';return;}
+  sList=matchNames(q); sIdx=-1;
+  suggEl.innerHTML=sList.map((p)=>`<li onclick="pick('${enc(p.name)}')"><span>${p.name}</span><span class="r num">${fmt(p.score)}</span></li>`).join('');
+  suggEl.style.display=sList.length?'block':'none';
+});
+searchEl.addEventListener('keydown',e=>{
+  if(suggEl.style.display==='none')return;
+  if(e.key==='ArrowDown'){sIdx=Math.min(sIdx+1,sList.length-1);hi();e.preventDefault();}
+  else if(e.key==='ArrowUp'){sIdx=Math.max(sIdx-1,0);hi();e.preventDefault();}
+  else if(e.key==='Enter'){ if(sIdx>=0)pick(enc(sList[sIdx].name)); else if(sList[0])pick(enc(sList[0].name)); }
+});
+function hi(){[...suggEl.children].forEach((li,i)=>li.classList.toggle('active',i===sIdx));}
+function pick(name){ searchEl.value=''; suggEl.style.display='none'; go('/p/'+name); }
+document.addEventListener('click',e=>{ if(!suggEl.contains(e.target)&&e.target!==searchEl) suggEl.style.display='none'; });
 
-    // ---- Autocomplete ----
-    const input = document.getElementById('playerInput');
-    const list = document.getElementById('suggestions');
-    const goBtn = document.getElementById('goBtn');
-    const seasonFilter = document.getElementById('seasonFilter');
-
-    function resetSeasonFilter(){
-      seasonFilter.innerHTML = '<option value="">All seasons</option>';
-    }
-
-    function showSuggestions(items){
-      list.innerHTML = items.slice(0, 50).map(name => `<li class="p-2 hover:bg-gray-100 cursor-pointer">${name}</li>`).join('');
-      list.classList.toggle('hidden', items.length === 0);
-      Array.from(list.children).forEach(li => li.addEventListener('click', () => {
-        input.value = li.textContent;
-        list.classList.add('hidden');
-        populateSeasons(li.textContent);
-      }));
-    }
-
-    function populateSeasons(player){
-      resetSeasonFilter();
-      const seasons = cache.teamsBySeason[player] ? Object.keys(cache.teamsBySeason[player]).sort() : [];
-      const opts = seasons.map(s => `<option value="${s}">${s}</option>`).join('');
-      seasonFilter.insertAdjacentHTML('beforeend', opts);
-    }
-
-    input.addEventListener('input', async () => {
-      await ensureData();
-      const q = input.value.trim().toLowerCase();
-      if(!q){ list.classList.add('hidden'); return; }
-      const matches = cache.players.filter(p => p.toLowerCase().includes(q));
-      showSuggestions(matches);
+function attachHthAutocomplete(){
+  ['hA','hB'].forEach(id=>{
+    const el=document.getElementById(id); if(!el)return;
+    let box=document.createElement('ul'); box.className='sugg';
+    el.parentElement.style.position='relative'; el.after(box);
+    el.addEventListener('input',()=>{
+      const q=el.value.trim(); if(!q){box.style.display='none';return;}
+      const list=matchNames(q,30);
+      box.innerHTML=list.map(p=>`<li><span>${p.name}</span><span class="r num">${fmt(p.score)}</span></li>`).join('');
+      [...box.children].forEach((li,i)=>li.onclick=()=>{el.value=list[i].name;box.style.display='none';});
+      box.style.display=list.length?'block':'none';
+      box.style.top='calc(100% + 4px)'; box.style.left='0'; box.style.width=el.offsetWidth+'px';
     });
+    document.addEventListener('click',e=>{ if(e.target!==el&&!box.contains(e.target)) box.style.display='none'; });
+  });
+}
 
-    document.addEventListener('click', (e)=>{
-      if(!list.contains(e.target) && e.target!==input){ list.classList.add('hidden'); }
-    });
+let cardPlayer=null;
+function openCard(name){
+  const p=BY_NAME[decodeURIComponent(name)]; if(!p)return; cardPlayer=p;
+  const mates=aggTeammates(p).slice(0,3);
+  const tcol = p.detail.length? teamColor(bestSeason(p).t) : '#3a342a';
+  document.getElementById('cardHost').innerHTML = `
+    <div class="sharecard" id="shareCard">
+      <div class="accentbar" style="background:${tcol}"></div>
+      <div class="sc-foot">HOOPS<b>MATIC</b></div>
+      <div class="sc-in">
+        <div class="sc-kick">Teammates Score</div>
+        <div class="sc-name">${p.name}</div>
+        <div class="sc-score num">${fmt(p.score)}</div>
+        <div class="sc-slabel">points of help &middot; all-time rank #${p.rank}</div>
+      </div>
+      <div class="sc-mates">
+        <div class="h">Most valuable teammates</div>
+        ${mates.map(m=>`<div class="sc-mate"><span>${m.n}</span><span class="mp num">${fmt(m.p)}</span></div>`).join('')||'<div class="sc-mate"><span>No decorated teammates</span></div>'}
+      </div>
+    </div>`;
+  document.getElementById('cardModal').classList.add('open');
+}
+function closeCard(){ document.getElementById('cardModal').classList.remove('open'); }
+async function downloadCard(){
+  await document.fonts.ready;
+  const node=document.getElementById('shareCard');
+  const canvas=await html2canvas(node,{scale:2,backgroundColor:'#16130d',useCORS:true});
+  const a=document.createElement('a');
+  a.download=`teammates-score-${cardPlayer.name.replace(/\s+/g,'-').toLowerCase()}.png`;
+  a.href=canvas.toDataURL('image/png'); a.click();
+}
 
-    goBtn.addEventListener('click', async () => {
-      await ensureData();
-      const player = input.value.trim();
-      if(!player || !cache.teamsBySeason[player]){ alert('Pick a valid player from suggestions.'); return; }
-      render(player, seasonFilter.value || null);
-    });
-
-    async function render(player, season){
-      const tbody = document.getElementById('tbody');
-      const results = document.getElementById('results');
-      const title = document.getElementById('resultsTitle');
-      const summary = document.getElementById('summary');
-
-      title.textContent = `Teammate accolades for ${player}`;
-      tbody.innerHTML = '';
-
-      let rows = [];
-      const seasons = season ? [season] : Object.keys(cache.teamsBySeason[player] || {});
-      for(const s of seasons){
-        const teams = cache.teamsBySeason[player][s] || [];
-        for(const t of teams){
-          const roster = cache.roster[`${s}|${t}`] || [];
-          for(const tm of roster){
-            if(tm === player) continue;
-            const acc = (cache.accolades[tm] && cache.accolades[tm][s]) || null;
-            rows.push({ season:s, team:t, mate:tm, accolades:formatAcc(acc) });
-          }
-        }
-      }
-
-      rows.sort((a,b)=> a.season.localeCompare(b.season) || a.team.localeCompare(b.team) || a.mate.localeCompare(b.mate));
-
-      for(const row of rows){
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="p-3 whitespace-nowrap">${row.season}</td>
-          <td class="p-3 whitespace-nowrap">${row.team}</td>
-          <td class="p-3">${row.mate}</td>
-          <td class="p-3">${row.accolades || '<span class="text-gray-400">—</span>'}</td>`;
-        tbody.appendChild(tr);
-      }
-
-      summary.textContent = `${rows.length} teammate-season rows`;
-      results.classList.remove('hidden');
-      window.scrollTo({ top: results.offsetTop - 16, behavior: 'smooth' });
-    }
-
-    function formatAcc(acc){
-      if(!acc) return '';
-      const parts = [];
-      for(const [k,v] of Object.entries(acc)){
-        parts.push(`${k}: ${v}`);
-      }
-      return parts.join(' · ');
-    }
-  </script>
+boot();
+</script>
 </body>
 </html>
