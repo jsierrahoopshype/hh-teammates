@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://jsierrahoopshype.github.io/hh-teammates/sitemap.xml

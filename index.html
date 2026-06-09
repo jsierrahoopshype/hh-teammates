@@ -5,19 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NBA Teammates Score | HoopsMatic</title>
 <meta name="description" id="metaDesc" content="How well surrounded has every player in NBA history been? We score every teammate's accolades, season by season." />
+<link rel="canonical" id="canon" href="https://jsierrahoopshype.github.io/hh-teammates/" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#f5f5f7;--surface:#fff;--surface-hover:#f0f0f2;--border:#d1d1d6;
   --text:#1d1d1f;--text-secondary:#6e6e73;--accent:#3b82f6;--accent-dim:rgba(59,130,246,.15);
-  --green:#1d8a40;--green-bar:#34c759;--red:#d12c2c;--red-bar:#ef4444;--orange:#b26b00;
+  --green:#1d8a40;--red:#d12c2c;--orange:#b26b00;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);
-  color:var(--text);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased}
+body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased}
 .container{max-width:1400px;margin:0 auto;padding:1.5rem 1.5rem 4rem}
 .container.narrow{max-width:1100px}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
@@ -28,12 +28,12 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .tabs a.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
 .hdr{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.35rem;flex-wrap:wrap}
-.hdr h1{font-size:1.4rem;font-weight:700;letter-spacing:-.03em}
+.hdr h1{font-size:1.4rem;font-weight:800;letter-spacing:-.03em}
 .hdr .brand{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em}
 .subtitle{color:var(--text-secondary);font-size:.9rem;margin-bottom:1.25rem;max-width:60rem}
 
 .filters{position:sticky;top:0;z-index:100;background:var(--bg);padding:.6rem 0 .9rem;margin-bottom:.5rem;border-bottom:1px solid var(--border)}
-.filter-row{display:grid;grid-template-columns:2fr 1.3fr 1.3fr auto;gap:.6rem;align-items:end}
+.filter-row{display:grid;grid-template-columns:1.8fr 1.2fr 1.1fr 1.1fr auto;gap:.6rem;align-items:end}
 .filter-group{display:flex;flex-direction:column;gap:.3rem;min-width:0}
 .filter-group label{font-size:.62rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 input[type=text],select{width:100%;padding:.5rem .8rem;font-size:.85rem;font-family:inherit;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);transition:.15s}
@@ -45,8 +45,8 @@ input[type=text]:focus,select:focus{outline:none;border-color:var(--accent);box-
 .ac-item{padding:.55rem .8rem;cursor:pointer;border-bottom:1px solid var(--border);font-size:.88rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem}
 .ac-item:last-child{border-bottom:none}
 .ac-item:hover,.ac-item.sel{background:var(--surface-hover)}
-.ac-item .ac-main{font-weight:500;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ac-item .ac-sub{font-size:.7rem;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
+.ac-item .ac-main{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac-item .ac-sub{font-size:.7rem;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0}
 .toggle{display:flex;gap:.3rem}
 .toggle button{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:500;padding:.5rem .7rem;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-secondary);cursor:pointer;transition:.12s;white-space:nowrap}
 .toggle button:hover{border-color:var(--accent);color:var(--accent)}
@@ -56,41 +56,41 @@ input[type=text]:focus,select:focus{outline:none;border-color:var(--accent);box-
 
 .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 table.lb{width:100%;border-collapse:collapse;font-size:.86rem}
-table.lb thead th{background:var(--surface-hover);color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;font-size:.66rem;font-weight:600;padding:.7rem .6rem;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;user-select:none}
-table.lb thead tr.grouphead th{background:var(--surface);padding:.5rem .6rem .2rem;border-bottom:none}
-table.lb thead tr.grouphead th.grp{color:var(--accent);font-weight:700;letter-spacing:.08em;border-bottom:2px solid var(--accent-dim)}
-table.lb thead tr.cols th{cursor:pointer;transition:color .15s}
+table.lb thead th{text-transform:uppercase;letter-spacing:.04em;font-size:.66rem;font-weight:700;padding:.6rem;text-align:center;white-space:nowrap;user-select:none}
+table.lb thead tr.grouphead th{background:var(--surface);padding:.55rem .6rem .35rem;color:var(--text-secondary)}
+table.lb thead tr.grouphead th.grp{background:var(--accent);color:#fff;font-weight:800;letter-spacing:.1em;border-radius:7px 7px 0 0}
+table.lb thead tr.cols th{background:var(--surface-hover);color:var(--text-secondary);border-bottom:1px solid var(--border);cursor:pointer;transition:color .15s}
+table.lb thead tr.cols th.tm-col{background:#e9effd}
 table.lb thead tr.cols th:hover{color:var(--accent)}
-table.lb thead tr.cols th.sorted-by{color:var(--accent);font-weight:700}
+table.lb thead tr.cols th.sorted-by{color:var(--accent);font-weight:800}
 table.lb thead th.left{text-align:left}
 table.lb thead th .arr{font-size:.6rem;opacity:.7;margin-left:.15rem}
 table.lb tbody tr{border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer}
 table.lb tbody tr:last-child{border-bottom:none}
-table.lb tbody tr:hover{background:var(--surface-hover)}
-table.lb td{padding:.5rem .6rem;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:500;white-space:nowrap}
-td.rank{color:var(--text-secondary);font-size:.78rem;width:2.4rem}
-table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff}
-.pl .nm{font-weight:600}
-.pl .nm a{color:var(--text)}.pl .nm a:hover{color:var(--accent)}
+table.lb tbody tr:hover{filter:brightness(.97)}
+table.lb td{padding:.5rem .6rem;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;white-space:nowrap}
+td.rank{color:var(--text-secondary);font-size:.78rem;width:2.4rem;font-weight:500}
+table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;font-weight:400}
+.pl .nm{font-weight:600}.pl .nm a{color:var(--text)}.pl .nm a:hover{color:var(--accent)}
 .rings{margin-left:.4rem;font-size:.8rem;letter-spacing:-.12em;white-space:nowrap}
-td.heat{font-weight:600;color:#222}
-td.score{font-weight:700;color:#1a1a1a}
 
 .cards{display:none}
-.card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.8rem .9rem;margin-bottom:.6rem;cursor:pointer;transition:.15s}
+.card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.8rem .9rem;margin-bottom:.6rem;cursor:pointer}
 .card:hover{border-color:var(--accent)}
 .card-rank{position:absolute;top:.7rem;right:.9rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text-secondary)}
 .card .nm{font-weight:600;font-size:.96rem}
 .card .score-big{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;margin-top:.2rem}
 .card .score-big .u{font-size:.6rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-left:.3rem}
-.card .mini{margin-top:.45rem;display:flex;gap:.5rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:.74rem}
-.card .mini span{padding:.1rem .4rem;border-radius:5px}
-.card .mini b{font-size:.58rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-right:.25rem}
+.card .tmlabel{margin-top:.5rem;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.card .mini{margin-top:.25rem;display:flex;gap:.4rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:.74rem}
+.card .mini span{padding:.12rem .45rem;border-radius:5px;font-weight:700}
+.card .mini b{font-size:.56rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-right:.25rem;opacity:.8}
+.card .seas{margin-top:.35rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text-secondary)}
 
 .back{font-size:.78rem;font-family:'JetBrains Mono',monospace;color:var(--text-secondary);display:inline-block;margin-bottom:1rem;cursor:pointer}
 .back:hover{color:var(--accent);text-decoration:none}
 .phead{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1.2rem}
-.phead h1{font-size:1.7rem;font-weight:700;letter-spacing:-.03em}
+.phead h1{font-size:1.7rem;font-weight:800;letter-spacing:-.03em}
 .phead h1 .rings{font-size:1.05rem;letter-spacing:0}
 .phead .team{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text-secondary);margin-top:.2rem}
 .statline{display:flex;gap:1.4rem;flex-wrap:wrap;font-family:'JetBrains Mono',monospace}
@@ -107,13 +107,12 @@ td.score{font-weight:700;color:#1a1a1a}
 .compare-inline label{display:block;font-size:.6rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.25rem}
 
 .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1.1rem}
-.section h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);font-weight:600;margin-bottom:.2rem}
+.section h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);font-weight:700;margin-bottom:.2rem}
 .section .hint{font-size:.74rem;color:var(--text-secondary);margin-bottom:1rem}
 
-.grid-award{margin-bottom:1.5rem}
-.grid-award:last-child{margin-bottom:0}
-.grid-award-h{display:flex;align-items:baseline;gap:.6rem;font-size:1.15rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.6rem;padding-bottom:.35rem;border-bottom:2px solid var(--text)}
-.grid-award-h .ct{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.72rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em}
+.grid-award{margin-bottom:1.5rem}.grid-award:last-child{margin-bottom:0}
+.grid-award-h{display:flex;align-items:baseline;gap:.6rem;font-size:1.15rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.6rem;padding-bottom:.35rem;border-bottom:2px solid var(--text)}
+.grid-award-h .ct{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.72rem;color:var(--text-secondary);text-transform:uppercase}
 .grid-award-h .wt{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:.7rem;color:var(--accent)}
 .inst{display:grid;grid-template-columns:3.6rem 1fr auto;align-items:baseline;gap:.7rem;padding:.32rem .5rem;border-radius:6px;font-size:.86rem}
 .inst:nth-child(even){background:var(--surface-hover)}
@@ -122,20 +121,20 @@ td.score{font-weight:700;color:#1a1a1a}
 .inst .who .tm{font-size:.74rem;color:var(--text-secondary);margin-left:.5rem}
 .inst .pts{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.78rem;color:var(--accent)}
 
-.arc-rows{display:flex;flex-direction:column;gap:.35rem}
-.arc-row{display:grid;grid-template-columns:13rem 1fr 3.4rem;align-items:center;gap:.7rem;font-size:.82rem}
-.arc-row .lab{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.arc-row .lab a{color:var(--text)}
-.arc-track{position:relative;height:1.3rem;background:var(--surface-hover);border-radius:4px;overflow:hidden}
-.arc-fill{position:absolute;left:0;top:0;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#60a5fa)}
-.arc-pct{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;text-align:right}
+.contrib{display:flex;flex-direction:column;gap:.55rem}
+.crow{display:grid;grid-template-columns:13rem 1fr 3.4rem;align-items:center;gap:.7rem}
+.crow .who{min-width:0}
+.crow .who a{font-weight:600;color:var(--text);font-size:.9rem}
+.crow .accs{font-size:.66rem;color:var(--text-secondary);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .track{position:relative;height:1.4rem;background:var(--surface-hover);border-radius:4px;overflow:hidden}
+.crow .fill{position:absolute;left:0;top:0;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),#60a5fa)}
+.crow .pts{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:700;text-align:right}
 .showmore{margin-top:.8rem;font-size:.74rem;font-family:'JetBrains Mono',monospace;background:none;border:none;color:var(--accent);cursor:pointer}
 .showmore:hover{text-decoration:underline}
 
-.hth-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.hth-verdict{font-size:.95rem;background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);padding:.7rem 1rem;border-radius:10px;margin-bottom:1rem}
+.hth-verdict{font-size:.95rem;background:var(--accent-dim);border:1px solid var(--accent);padding:.7rem 1rem;border-radius:10px;margin-bottom:1rem}
 .hth-verdict b{color:var(--accent)}
-.hth-col .num.accent{color:var(--accent)}
+.hth-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start}
 .hth-pick{display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}
 .hth-pick .filter-group{flex:1;min-width:11rem}
 
@@ -143,48 +142,79 @@ td.score{font-weight:700;color:#1a1a1a}
 .foot{text-align:center;font-size:.72rem;color:var(--text-secondary);margin-top:1.4rem;font-family:'JetBrains Mono',monospace;line-height:1.7}
 .loading{text-align:center;padding:4rem 1rem;color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
 
-#cardModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:200;align-items:center;justify-content:center;padding:1rem}
+/* share modal + cards */
+#cardModal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:200;align-items:center;justify-content:center;padding:1rem}
 #cardModal.open{display:flex}
-.modalbox{max-width:520px;width:100%}
-.modalbar{display:flex;gap:.5rem;justify-content:center;margin-top:.8rem}
-.sharecard{width:500px;height:500px;background:#0f1115;color:#f5f5f7;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;margin:0 auto}
-.sharecard .bar{position:absolute;top:0;left:0;right:0;height:12px;background:var(--accent)}
-.sharecard .in{padding:34px 32px}
-.sharecard .kick{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#8a93a6;margin-top:6px}
-.sharecard .nm{font-size:42px;font-weight:700;letter-spacing:-.02em;margin-top:8px;line-height:1.02}
-.sharecard .nm .rings{font-size:20px;letter-spacing:-.1em}
-.sharecard .sc{font-family:'JetBrains Mono',monospace;font-size:104px;font-weight:700;color:var(--accent);margin-top:14px;line-height:.85}
-.sharecard .scl{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8a93a6;margin-top:2px}
-.sharecard .mates{position:absolute;left:32px;right:32px;bottom:30px}
-.sharecard .mates .h{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a93a6;margin-bottom:8px}
-.sharecard .mate{display:flex;justify-content:space-between;font-size:15px;padding:5px 0;border-top:1px solid #232733}
-.sharecard .mate .mp{font-family:'JetBrains Mono',monospace;color:#60a5fa;font-weight:600}
-.sharecard .foot{position:absolute;right:30px;top:28px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#f5f5f7}
-.sharecard .foot b{color:var(--accent)}
+.modalbox{display:flex;flex-direction:column;align-items:center}
+#cardScale{overflow:hidden}
+.modalbar{display:flex;gap:.5rem;justify-content:center;margin-top:.9rem}
+.sc{position:relative;background:#0d0f14;color:#f5f5f7;font-family:'DM Sans',sans-serif;overflow:hidden}
+.sc *{box-sizing:border-box}
+.sc .topbar{position:absolute;top:0;left:0;right:0;height:18px}
+.sc .brand{position:absolute;top:34px;right:48px;font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:.12em;font-weight:600;color:#fff}
+.sc .brand b{color:#3b82f6}
+.sc .kick{font-family:'JetBrains Mono',monospace;letter-spacing:.28em;text-transform:uppercase;color:#8a93a6}
+.sc .photo{position:absolute;border-radius:18px;object-fit:cover;background:#1a1d24}
+/* player card 1080x1350 */
+.sc.player{width:1080px;height:1350px}
+.sc.player .kick{font-size:26px;margin:0}
+.sc.player .pname{font-size:96px;font-weight:800;letter-spacing:-.03em;line-height:.92;margin-top:10px;max-width:760px}
+.sc.player .pname .rings{font-size:46px;letter-spacing:-.1em;display:block;margin-top:10px}
+.sc.player .head{padding:64px 64px 0}
+.sc.player .tmwrap{padding:54px 64px 0}
+.sc.player .tmh{font-family:'JetBrains Mono',monospace;font-size:28px;letter-spacing:.16em;text-transform:uppercase;color:#3b82f6;font-weight:600;margin-bottom:28px}
+.sc.player .tm{display:flex;align-items:baseline;gap:18px;padding:20px 0;border-top:2px solid #1c2029}
+.sc.player .tm:last-child{border-bottom:2px solid #1c2029}
+.sc.player .tm .tn{font-size:42px;font-weight:700;width:430px;flex:none}
+.sc.player .tm .ta{font-family:'JetBrains Mono',monospace;font-size:23px;color:#aeb6c6;flex:1;line-height:1.3}
+.sc.player .tm .tp{font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:700;color:#3b82f6}
+.sc.player .scorebox{position:absolute;left:0;right:0;bottom:0;padding:48px 64px;background:linear-gradient(180deg,transparent,#06070a 38%);display:flex;align-items:flex-end;justify-content:space-between}
+.sc.player .scorebox .lbl{font-family:'JetBrains Mono',monospace;font-size:24px;letter-spacing:.14em;text-transform:uppercase;color:#8a93a6}
+.sc.player .scorebox .big{font-family:'JetBrains Mono',monospace;font-size:170px;font-weight:700;line-height:.8;color:#3b82f6}
+.sc.player .scorebox .rk{font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:700;text-align:right;color:#fff}
+.sc.player .scorebox .rk span{display:block;font-size:22px;color:#8a93a6;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-top:6px}
+.sc.player .photo{top:64px;right:48px;width:300px;height:300px}
+/* hth card 1080x1350 */
+.sc.hth{width:1080px;height:1350px}
+.sc.hth .kick{font-size:26px}
+.sc.hth .head{padding:64px 64px 0;text-align:center}
+.sc.hth .vsnames{font-size:62px;font-weight:800;letter-spacing:-.02em;line-height:1.04;margin-top:14px}
+.sc.hth .vsnames .v{color:#3b82f6;font-family:'JetBrains Mono',monospace;font-size:34px;display:block;margin:8px 0}
+.sc.hth .cols{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:50px 56px 0}
+.sc.hth .col{padding:0 22px}
+.sc.hth .col+.col{border-left:2px solid #1c2029}
+.sc.hth .ch{font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:.12em;text-transform:uppercase;color:#8a93a6;margin-bottom:22px;text-align:center}
+.sc.hth .tm{padding:16px 0;border-top:1px solid #1c2029}
+.sc.hth .tm .tn{font-size:30px;font-weight:700}
+.sc.hth .tm .ta{font-family:'JetBrains Mono',monospace;font-size:18px;color:#aeb6c6;margin-top:3px}
+.sc.hth .scorebox{position:absolute;left:0;right:0;bottom:0;padding:46px 56px;background:linear-gradient(180deg,transparent,#06070a 42%);display:grid;grid-template-columns:1fr 1fr;gap:0;text-align:center}
+.sc.hth .scorebox .s .big{font-family:'JetBrains Mono',monospace;font-size:120px;font-weight:700;line-height:.8}
+.sc.hth .scorebox .s.win .big{color:#3b82f6}
+.sc.hth .scorebox .s .nm{font-size:30px;font-weight:700;margin-top:10px}
+.sc.hth .gap{position:absolute;left:50%;bottom:300px;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:24px;color:#fff;background:#3b82f6;padding:10px 22px;border-radius:30px;font-weight:700;white-space:nowrap}
 
 @media(max-width:860px){
-  .filter-row{grid-template-columns:1fr;gap:.45rem}
-  .table-wrap{display:none}
-  .cards{display:block}
+  .filter-row{grid-template-columns:1fr 1fr;gap:.45rem}
+  .filter-group.search{grid-column:1/-1}
+  .table-wrap{display:none}.cards{display:block}
   .hdr .brand{display:none}
   input[type=text],select{font-size:16px}
   .hth-grid{grid-template-columns:1fr}
   .statline{gap:1.1rem}
-  .arc-row{grid-template-columns:8rem 1fr 3rem}
+  .crow{grid-template-columns:8rem 1fr 3rem}
+  .crow .accs{display:none}
 }
 </style>
 </head>
 <body>
 <div class="container" id="container">
   <div id="view"><div class="loading">Loading every roster in NBA history…</div></div>
-  <div class="foot" id="foot">
-    Teammates Score adds up the accolades of every teammate a player shared a season with: MVP &amp; Finals MVP 10, All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125.
-  </div>
+  <div class="foot">Teammates Score adds up the accolades of every teammate a player shared a season with: MVP &amp; Finals MVP 10, All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125.</div>
 </div>
 
 <div id="cardModal" onclick="if(event.target===this)closeCard()">
   <div class="modalbox">
-    <div id="cardHost"></div>
+    <div id="cardScale"><div id="cardHost"></div></div>
     <div class="modalbar">
       <button class="btn primary" onclick="downloadCard()">Download PNG</button>
       <button class="btn" onclick="closeCard()">Close</button>
@@ -194,15 +224,20 @@ td.score{font-weight:700;color:#1a1a1a}
 
 <script>
 const DATA_URL="data/teammates.json";
-const AWARD_ORDER=["Most Valuable Player","Finals MVP","All-NBA First Team","Defensive Player of the Year",
-  "All-NBA Second Team","All-NBA Third Team","All-Star","All-Defensive First Team","Rookie of the Year",
-  "Sixth Man of the Year","All-Defensive Second Team","All-Star MVP","Most Improved Player",
-  "All-Rookie First Team","All-Rookie Second Team"];
-const AWARD_LABEL={"Most Valuable Player":"MVP"};
+const SITE="https://jsierrahoopshype.github.io/hh-teammates";
+/* Set this to your headshot proxy/base to light up photos on the cards, e.g.
+   "https://nba-proxy.thejorgesierra.workers.dev/headshot/" and HEADSHOT_EXT below.
+   Filenames are keyed by slug (derek-fisher). Leave blank for typographic cards. */
+const HEADSHOT_BASE="";
+const HEADSHOT_EXT=".png";
+const AWARD_ORDER=["Most Valuable Player","Finals MVP","All-NBA First Team","Defensive Player of the Year","All-NBA Second Team","All-NBA Third Team","All-Star","All-Defensive First Team","Rookie of the Year","Sixth Man of the Year","All-Defensive Second Team","All-Star MVP","Most Improved Player","All-Rookie First Team","All-Rookie Second Team"];
+const AWARD_LABEL={"Most Valuable Player":"MVP","All-NBA First Team":"All-NBA 1st Team","All-NBA Second Team":"All-NBA 2nd Team","All-NBA Third Team":"All-NBA 3rd Team","All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team","All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"};
+const ALLNBA=new Set(["All-NBA First Team","All-NBA Second Team","All-NBA Third Team"]);
 const TEAM_COLORS={ATL:"#e03a3e",BOS:"#007a33",BKN:"#000",CHA:"#1d1160",CHI:"#ce1141",CLE:"#860038",DAL:"#00538c",DEN:"#0e2240",DET:"#c8102e",GSW:"#1d428a",HOU:"#ce1141",IND:"#fdbb30",LAC:"#c8102e",LAL:"#552583",MEM:"#5d76a9",MIA:"#98002e",MIL:"#00471b",MIN:"#0c2340",NOP:"#0c2340",NYK:"#006bb6",OKC:"#007ac1",ORL:"#0077c0",PHI:"#006bb6",PHX:"#1d1160",POR:"#e03a3e",SAC:"#5a2d81",SAS:"#000",TOR:"#ce1141",UTA:"#002b5c",WAS:"#002b5c"};
 
 let DB=null,BY_NAME={},BY_SLUG={},SCORES={},TEAMS={};
-const fmt=n=>{const r=Math.round(n*1000)/1000;return r%1===0?r.toString():parseFloat(r.toFixed(3)).toString();};
+const round=n=>Math.round(n*1000)/1000;
+const fmt=n=>{const r=round(n);return r%1===0?r.toString():parseFloat(r.toFixed(3)).toString();};
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const trophies=n=>n>0?`<span class="rings" title="${n} NBA ${n>1?'titles':'title'}">${'🏆'.repeat(n)}</span>`:'';
 const awLabel=a=>AWARD_LABEL[a]||a;
@@ -214,32 +249,53 @@ async function boot(){
     const res=await fetch(DATA_URL,{cache:"force-cache"});
     DB=await res.json();SCORES=DB.scores;TEAMS=DB.teams||{};
     DB.players.forEach(p=>{BY_NAME[p.name]=p;BY_SLUG[p.slug]=p;});
-    route();
-  }catch(e){
-    document.getElementById('view').innerHTML='<div class="loading">Could not load data/teammates.json. Run build_teammates.py and confirm the file is in /data.</div>';
-  }
+    buildEras();route();
+  }catch(e){document.getElementById('view').innerHTML='<div class="loading">Could not load data/teammates.json. Run build_teammates.py and confirm the file is in /data.</div>';}
 }
 
 /* derived */
 function aggTeammates(p){
   const m={};
   for(const s of p.detail)for(const mate of s.mates){
-    if(!m[mate.n]){m[mate.n]={n:mate.n,p:0,years:new Set()};}
+    if(!m[mate.n])m[mate.n]={n:mate.n,p:0,years:new Set(),aw:{}};
     m[mate.n].p+=mate.p;m[mate.n].years.add(s.y);
+    for(const a of mate.a)m[mate.n].aw[a]=(m[mate.n].aw[a]||0)+1;
   }
   return Object.values(m).sort((a,b)=>b.p-a.p);
+}
+function accSummary(awObj,limit=4){
+  const parts=[];
+  for(const a of AWARD_ORDER)if(awObj[a])parts.push(`${awObj[a]}× ${awLabel(a)}`);
+  return parts.slice(0,limit).join(' · ')+(parts.length>limit?' …':'');
 }
 function bestSeason(p){let b=null;for(const s of p.detail)if(!b||s.pts>b.pts)b=s;return b;}
 function byAward(p){
   const g={};
-  for(const s of p.detail)for(const mate of s.mates)for(const a of mate.a){(g[a]=g[a]||[]).push({n:mate.n,y:s.y,t:s.t});}
-  for(const a in g)g[a].sort((x,y)=>x.y-y.y||x.n.localeCompare(y.n)); // oldest -> newest
+  for(const s of p.detail)for(const mate of s.mates)for(const a of mate.a)(g[a]=g[a]||[]).push({n:mate.n,y:s.y,t:s.t});
+  for(const a in g)g[a].sort((x,y)=>x.y-y.y||x.n.localeCompare(y.n));
   return g;
 }
 function slugOf(name){const p=BY_NAME[name];return p?p.slug:'';}
 
-/* SEO + routing (query params) */
-function setMeta(title,desc){document.title=title;const m=document.getElementById('metaDesc');if(m&&desc)m.content=desc;}
+/* era */
+let ERAS=[];
+function buildEras(){
+  let lo=9999,hi=0;for(const p of DB.players)for(const y of p.years){if(y<lo)lo=y;if(y>hi)hi=y;}
+  const a=[];for(let d=Math.floor(lo/10)*10;d<=hi;d+=10)a.push(d);ERAS=a;
+}
+let era='all',eraCache={};
+function eraStats(p){
+  if(era==='all')return p;
+  const c=eraCache[era]||(eraCache[era]={});if(c[p.slug])return c[p.slug];
+  const d=parseInt(era),lo=d,hi=d+9;let score=0,mvp=0,allnba=0,allstar=0;
+  for(const s of p.detail)if(s.y>=lo&&s.y<=hi){score+=s.pts;for(const m of s.mates)for(const a of m.a){if(a==="Most Valuable Player")mvp++;else if(ALLNBA.has(a))allnba++;else if(a==="All-Star")allstar++;}}
+  const seasons=p.years.filter(y=>y>=lo&&y<=hi).length;
+  const o={...p,score:round(score),seasons,perSeason:seasons?round(score/seasons):0,mvp,allnba,allstar};
+  c[p.slug]=o;return o;
+}
+
+/* SEO + routing */
+function setMeta(title,desc,canon){document.title=title;const m=document.getElementById('metaDesc');if(m&&desc)m.content=desc;const c=document.getElementById('canon');if(c&&canon)c.href=canon;}
 function navTo(qs){history.pushState({},'',qs);route();window.scrollTo({top:0});}
 window.addEventListener('popstate',route);
 function route(){
@@ -251,75 +307,56 @@ function route(){
 }
 
 /* ---------------- LEADERBOARD ---------------- */
-let lbMode='career',lbSort={key:'score',dir:-1},lbFilter='',perSeasonMin=5;
+let lbMode='career',lbSort={key:'score',dir:-1},perSeasonMin=5;
 const COLS=[
   {key:'rank',label:'#',cls:'rank',sortable:false},
   {key:'name',label:'Player',cls:'left pl',sortable:true},
   {key:'seasons',label:'Seasons',sortable:true},
-  {key:'mvp',label:'MVP',sortable:true,heat:true},
-  {key:'allnba',label:'All-NBA',sortable:true,heat:true},
-  {key:'allstar',label:'All-Star',sortable:true,heat:true},
-  {key:'score',label:'Score',cls:'score',sortable:true,heat:true},
+  {key:'mvp',label:'MVP',sortable:true,heat:true,tm:true},
+  {key:'allnba',label:'All-NBA',sortable:true,heat:true,tm:true},
+  {key:'allstar',label:'All-Star',sortable:true,heat:true,tm:true},
+  {key:'score',label:'Score',sortable:true,heat:true},
 ];
 function metric(p){return lbMode==='career'?p.score:p.perSeason;}
 function lbList(){
-  let list=DB.players.filter(p=>p.score>0);
+  let list=DB.players.map(eraStats).filter(p=>p.score>0);
   if(lbMode==='perSeason'&&perSeasonMin>1)list=list.filter(p=>p.seasons>=perSeasonMin);
-  if(lbFilter.trim()){const q=lbFilter.toLowerCase();list=list.filter(p=>p.name.toLowerCase().includes(q));}
   const k=lbSort.key,d=lbSort.dir;
-  list.sort((a,b)=>{
-    if(k==='name')return a.name.localeCompare(b.name)*d*-1;
-    const va=k==='score'?metric(a):a[k],vb=k==='score'?metric(b):b[k];
-    return (va-vb)*d;
-  });
+  list.sort((a,b)=>k==='name'?a.name.localeCompare(b.name)*d*-1:((k==='score'?metric(a):a[k])-(k==='score'?metric(b):b[k]))*d);
   return list;
 }
+function lerp(a,b,t){return a+(b-a)*t;}
 function heatStyle(v,max){
-  if(max<=0)return '';
-  const t=Math.max(0,Math.min(1,v/max));
-  const hue=t*125;                       // 0=red, 125=green
-  const light=92-t*6;                    // slightly deeper green at the top
-  return `background:hsl(${hue.toFixed(0)} 72% ${light.toFixed(0)}%)`;
+  if(max<=0){max=1;}
+  const t=Math.max(0,Math.min(1,v/max));let r,g,b;
+  if(t<.5){const u=t/.5;r=lerp(209,242,u);g=lerp(44,191,u);b=lerp(44,36,u);}
+  else{const u=(t-.5)/.5;r=lerp(242,29,u);g=lerp(191,138,u);b=lerp(36,64,u);}
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  return `background:rgb(${r|0} ${g|0} ${b|0});color:${lum<0.62?'#fff':'#161310'}`;
 }
 function renderLeaderboard(){
   document.getElementById('container').className='container';
   setMeta('NBA Teammates Score — how much help did every player have? | HoopsMatic',
-    "Every NBA player ranked by the accolades of the teammates they shared a season with. MVP, All-NBA, All-Star and more, all-time.");
-  const v=document.getElementById('view');
-  v.innerHTML=`
+    "Every NBA player ranked by the accolades of the teammates they shared a season with. MVP, All-NBA, All-Star and more, all-time and by decade.",SITE+'/');
+  const eraOpts=`<option value="all"${era==='all'?' selected':''}>All-time</option>`+ERAS.map(d=>`<option value="${d}"${era==String(d)?' selected':''}>${d}s</option>`).join('');
+  document.getElementById('view').innerHTML=`
     ${tabsHtml('lb')}
     <div class="hdr"><h1>Teammates Score</h1><span class="brand">HoopsMatic · how much help did he have?</span></div>
-    <p class="subtitle">Every point here was earned by someone else. We add up the accolades of every teammate a player shared a season with, MVP down to All-Rookie. The all-time list is a monument to glue guys on great teams. Trophies are the player's own rings.</p>
-    <div class="filters">
-      <div class="filter-row">
-        <div class="filter-group search">
-          <label>Search any player</label>
-          <input type="text" id="q" placeholder="e.g. Horry, LeBron, Jokić…" autocomplete="off">
-          <div class="ac" id="ac"></div>
-        </div>
-        <div class="filter-group">
-          <label>Headline metric</label>
-          <div class="toggle">
-            <button id="tCareer" class="${lbMode==='career'?'active':''}" onclick="setMode('career')">Career total</button>
-            <button id="tPer" class="${lbMode==='perSeason'?'active':''}" onclick="setMode('perSeason')">Per season</button>
-          </div>
-        </div>
-        <div class="filter-group" id="minWrap" style="${lbMode==='perSeason'?'':'visibility:hidden'}">
-          <label>Eligibility</label>
-          <div class="toggle">
-            <button class="${perSeasonMin>1?'active':''}" onclick="setMin(5)">5+ seasons</button>
-            <button class="${perSeasonMin===1?'active':''}" onclick="setMin(1)">All players</button>
-          </div>
-        </div>
-        <div class="filter-group">
-          <label>&nbsp;</label>
-          <button class="btn" onclick="lbFilter='';lbSort={key:'score',dir:-1};lbMode='career';perSeasonMin=5;renderLeaderboard()">Reset</button>
-        </div>
-      </div>
-    </div>
+    <p class="subtitle">Every point here was earned by someone else. We add up the accolades of every teammate a player shared a season with, MVP down to All-Rookie. Trophies are the player's own rings.</p>
+    <div class="filters"><div class="filter-row">
+      <div class="filter-group search"><label>Search any player</label><input type="text" id="q" placeholder="e.g. Horry, LeBron, Jokić…" autocomplete="off"><div class="ac" id="ac"></div></div>
+      <div class="filter-group"><label>Headline metric</label><div class="toggle">
+        <button class="${lbMode==='career'?'active':''}" onclick="setMode('career')">Career total</button>
+        <button class="${lbMode==='perSeason'?'active':''}" onclick="setMode('perSeason')">Per season</button></div></div>
+      <div class="filter-group"><label>Era</label><select id="eraSel" onchange="setEra(this.value)">${eraOpts}</select></div>
+      <div class="filter-group" id="minWrap" style="${lbMode==='perSeason'?'':'visibility:hidden'}"><label>Eligibility</label><div class="toggle">
+        <button class="${perSeasonMin>1?'active':''}" onclick="setMin(5)">5+ seasons</button>
+        <button class="${perSeasonMin===1?'active':''}" onclick="setMin(1)">All</button></div></div>
+      <div class="filter-group"><label>&nbsp;</label><button class="btn" onclick="resetLB()">Reset</button></div>
+    </div></div>
     <div class="summary" id="summary"></div>
     <div class="table-wrap"><table class="lb"><thead>
-      <tr class="grouphead"><th></th><th></th><th></th><th class="grp" colspan="3">Teammate accolades</th><th></th></tr>
+      <tr class="grouphead"><th></th><th></th><th></th><th class="grp" colspan="3">▼ Accolades won by teammates ▼</th><th></th></tr>
       <tr class="cols" id="head"></tr>
     </thead><tbody id="body"></tbody></table></div>
     <div class="cards" id="cards"></div>`;
@@ -328,135 +365,94 @@ function renderLeaderboard(){
 }
 function setMode(m){lbMode=m;if(lbSort.key==='score')lbSort.dir=-1;renderLeaderboard();}
 function setMin(n){perSeasonMin=n;renderLeaderboard();}
+function setEra(e){era=e;renderLeaderboard();}
+function resetLB(){lbSort={key:'score',dir:-1};lbMode='career';perSeasonMin=5;era='all';renderLeaderboard();}
 function sortBy(k){if(lbSort.key===k)lbSort.dir*=-1;else lbSort={key:k,dir:k==='name'?1:-1};fillLB();}
 function fillLB(){
-  const list=lbList();
-  const maxes={};
-  COLS.filter(c=>c.heat).forEach(c=>{maxes[c.key]=Math.max(1,...list.map(p=>c.key==='score'?metric(p):p[c.key]));});
+  const list=lbList(),maxes={};
+  COLS.filter(c=>c.heat).forEach(c=>maxes[c.key]=Math.max(1,...list.map(p=>c.key==='score'?metric(p):p[c.key])));
   document.getElementById('head').innerHTML=COLS.map(c=>{
     const on=lbSort.key===c.key,arr=on?(lbSort.dir<0?'↓':'↑'):'';
-    return `<th class="${c.cls||''} ${on?'sorted-by':''}" ${c.sortable?`onclick="sortBy('${c.key}')"`:''}>${c.label}<span class="arr">${arr}</span></th>`;
+    return `<th class="${c.cls||''} ${c.tm?'tm-col':''} ${on?'sorted-by':''}" ${c.sortable?`onclick="sortBy('${c.key}')"`:''}>${c.label}<span class="arr">${arr}</span></th>`;
   }).join('');
-  const cell=(p,key)=>{const val=key==='score'?metric(p):p[key];const st=heatStyle(val,maxes[key]);
-    return `<td class="heat ${key==='score'?'score':''}" style="${st}">${key==='score'?fmt(val):(val||'0')}</td>`;};
-  document.getElementById('body').innerHTML=list.map((p,i)=>`
-    <tr onclick="navTo('?p=${p.slug}')">
-      <td class="rank">${i+1}</td>
-      <td class="pl"><span class="nm"><a href="?p=${p.slug}" onclick="event.preventDefault()">${esc(p.name)}</a></span>${trophies(p.rings)}</td>
-      <td>${p.seasons}</td>
-      ${cell(p,'mvp')}${cell(p,'allnba')}${cell(p,'allstar')}${cell(p,'score')}
-    </tr>`).join('');
-  document.getElementById('cards').innerHTML=list.map((p,i)=>`
-    <div class="card" onclick="navTo('?p=${p.slug}')">
-      <div class="card-rank">#${i+1}</div>
-      <div class="nm">${esc(p.name)} ${trophies(p.rings)}</div>
-      <div class="score-big">${fmt(metric(p))}<span class="u">${lbMode==='career'?'pts':'pts/season'}</span></div>
-      <div class="mini">
-        <span style="${heatStyle(p.mvp,maxes.mvp)}"><b>MVP</b>${p.mvp}</span>
-        <span style="${heatStyle(p.allnba,maxes.allnba)}"><b>All-NBA</b>${p.allnba}</span>
-        <span style="${heatStyle(p.allstar,maxes.allstar)}"><b>All-Star</b>${p.allstar}</span>
-        <span><b>Seasons</b>${p.seasons}</span>
-      </div>
-    </div>`).join('');
-  document.getElementById('summary').innerHTML=`<strong>${list.length.toLocaleString()}</strong> players${lbMode==='perSeason'&&perSeasonMin>1?` with ${perSeasonMin}+ seasons`:''}, sorted by ${lbSort.key==='score'?(lbMode==='career'?'career total':'per-season score'):lbSort.key}. MVP / All-NBA / All-Star are accolades won by each player's <strong>teammates</strong>. Green = high, red = low. Tap a column to re-sort.`;
+  const cell=(p,key)=>{const v=key==='score'?metric(p):p[key];return `<td style="${heatStyle(v,maxes[key])}">${key==='score'?fmt(v):v}</td>`;};
+  document.getElementById('body').innerHTML=list.map((p,i)=>`<tr onclick="navTo('?p=${p.slug}')">
+    <td class="rank">${i+1}</td>
+    <td class="pl"><span class="nm"><a href="?p=${p.slug}" onclick="event.preventDefault()">${esc(p.name)}</a></span>${trophies(p.rings)}</td>
+    <td>${p.seasons}</td>${cell(p,'mvp')}${cell(p,'allnba')}${cell(p,'allstar')}${cell(p,'score')}</tr>`).join('');
+  document.getElementById('cards').innerHTML=list.map((p,i)=>`<div class="card" onclick="navTo('?p=${p.slug}')">
+    <div class="card-rank">#${i+1}</div><div class="nm">${esc(p.name)} ${trophies(p.rings)}</div>
+    <div class="score-big">${fmt(metric(p))}<span class="u">${lbMode==='career'?'pts':'pts/season'}</span></div>
+    <div class="tmlabel">Accolades won by teammates</div>
+    <div class="mini"><span style="${heatStyle(p.mvp,maxes.mvp)}"><b>MVP</b>${p.mvp}</span><span style="${heatStyle(p.allnba,maxes.allnba)}"><b>All-NBA</b>${p.allnba}</span><span style="${heatStyle(p.allstar,maxes.allstar)}"><b>All-Star</b>${p.allstar}</span></div>
+    <div class="seas">${p.seasons} seasons${p.rings?` · ${p.rings} rings`:''}</div></div>`).join('');
+  document.getElementById('summary').innerHTML=`<strong>${list.length.toLocaleString()}</strong> players${era!=='all'?` active in the ${era}s`:''}${lbMode==='perSeason'&&perSeasonMin>1?`, ${perSeasonMin}+ seasons`:''}, sorted by ${lbSort.key==='score'?(lbMode==='career'?'career total':'per-season'):lbSort.key}. The shaded columns are accolades won by each player's <strong>teammates</strong> (green high, red low).`;
 }
 
 /* ---------------- PLAYER ---------------- */
 function renderPlayer(slug){
   document.getElementById('container').className='container narrow';
-  const p=BY_SLUG[slug]||BY_NAME[slug];
-  const v=document.getElementById('view');
-  if(!p){v.innerHTML=`${backHtml()}<div class="empty">Player not found.</div>`;setMeta('Player not found | Teammates Score','');return;}
+  const p=BY_SLUG[slug]||BY_NAME[slug],v=document.getElementById('view');
+  if(!p){v.innerHTML=`${backHtml()}<div class="empty">Player not found.</div>`;return;}
   setMeta(`${p.name} — Teammates Score #${p.rank} all-time | HoopsMatic`,
-    `${p.name} has a Teammates Score of ${fmt(p.score)}, ${p.rank===1?'the most':'#'+p.rank} of all time. See every accolade his teammates won while they played together.`);
+    `${p.name} has a Teammates Score of ${fmt(p.score)}, #${p.rank} of all time. Every accolade his teammates won while they played together.`,`${SITE}/p/${p.slug}.html`);
   const g=byAward(p),best=bestSeason(p),contrib=aggTeammates(p),topMate=contrib[0];
   const totalAcc=p.detail.reduce((n,s)=>n+s.mates.reduce((m,x)=>m+x.a.length,0),0);
-
   let html=`${backHtml()}
-    <div class="phead">
-      <div>
-        <h1>${esc(p.name)} ${trophies(p.rings)}</h1>
-        <div class="team">${p.seasons} seasons · ${p.detail.length} alongside an award winner${p.rings?` · ${p.rings} NBA ${p.rings>1?'titles':'title'}`:''}</div>
-        <div class="pactions">
-          <button class="btn primary" onclick="openCard('${p.slug}')">Share card</button>
-          <div class="compare-inline">
-            <label>Compare with…</label>
-            <input type="text" id="cmp" placeholder="type a player" autocomplete="off">
-            <div class="ac" id="cmpac"></div>
-          </div>
-        </div>
-      </div>
-      <div class="statline">
-        <div class="stat"><div class="num accent">${fmt(p.score)}</div><div class="lbl">Teammates Score</div></div>
-        <div class="stat"><div class="num">#${p.rank}</div><div class="lbl">All-time rank</div></div>
-        <div class="stat"><div class="num">${fmt(p.perSeason)}</div><div class="lbl">Per season</div></div>
-      </div>
+    <div class="phead"><div>
+      <h1>${esc(p.name)} ${trophies(p.rings)}</h1>
+      <div class="team">${p.seasons} seasons · ${p.detail.length} alongside an award winner${p.rings?` · ${p.rings} NBA ${p.rings>1?'titles':'title'}`:''}</div>
+      <div class="pactions"><button class="btn primary" onclick="openPlayerCard('${p.slug}')">Share card</button>
+        <div class="compare-inline"><label>Compare with…</label><input type="text" id="cmp" placeholder="type a player" autocomplete="off"><div class="ac" id="cmpac"></div></div></div>
     </div>
-
-    <div class="section"><h2>The headline</h2>
-      <div class="statline" style="gap:2.2rem">
-        <div class="stat" style="text-align:left"><div class="num">${topMate?esc(topMate.n):'—'}</div><div class="lbl">Most valuable teammate${topMate?` · ${fmt(topMate.p)} pts / ${topMate.years.size} yrs`:''}</div></div>
-        <div class="stat" style="text-align:left"><div class="num">${best?best.y+' '+esc(teamName(best.t)):'—'}</div><div class="lbl">Most loaded season${best?` · ${fmt(best.pts)} pts`:''}</div></div>
-      </div>
-    </div>
-
-    <div class="section"><h2>Every teammate accolade</h2>
-      <div class="hint">All ${totalAcc} accolades won by teammates while they shared a roster, grouped from most to least valuable, oldest to newest within each.</div>`;
+    <div class="statline">
+      <div class="stat"><div class="num accent">${fmt(p.score)}</div><div class="lbl">Teammates Score</div></div>
+      <div class="stat"><div class="num">#${p.rank}</div><div class="lbl">All-time rank</div></div>
+      <div class="stat"><div class="num">${fmt(p.perSeason)}</div><div class="lbl">Per season</div></div>
+    </div></div>
+    <div class="section"><h2>The headline</h2><div class="statline" style="gap:2.2rem">
+      <div class="stat" style="text-align:left"><div class="num">${topMate?esc(topMate.n):'—'}</div><div class="lbl">Most valuable teammate${topMate?` · ${fmt(topMate.p)} pts / ${topMate.years.size} yrs`:''}</div></div>
+      <div class="stat" style="text-align:left"><div class="num">${best?best.y+' '+esc(teamName(best.t)):'—'}</div><div class="lbl">Most loaded season${best?` · ${fmt(best.pts)} pts`:''}</div></div>
+    </div></div>
+    <div class="section"><h2>Every teammate accolade</h2><div class="hint">All ${totalAcc} accolades won by teammates while sharing a roster, most to least valuable, oldest to newest within each.</div>`;
   let any=false;
-  for(const a of AWARD_ORDER){
-    const inst=g[a];if(!inst||!inst.length)continue;any=true;
+  for(const a of AWARD_ORDER){const inst=g[a];if(!inst||!inst.length)continue;any=true;
     html+=`<div class="grid-award"><div class="grid-award-h">${esc(awLabel(a))}<span class="wt">${fmt(SCORES[a])} pts each</span><span class="ct">${inst.length} · ${fmt(inst.length*SCORES[a])} pts</span></div>`;
-    for(const x of inst)
-      html+=`<div class="inst"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();event.stopPropagation();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}</span></span><span class="pts">+${fmt(SCORES[a])}</span></div>`;
-    html+=`</div>`;
-  }
+    for(const x of inst)html+=`<div class="inst"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();event.stopPropagation();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}</span></span><span class="pts">+${fmt(SCORES[a])}</span></div>`;
+    html+=`</div>`;}
   if(!any)html+=`<div class="empty">No teammate ever won a scored accolade alongside ${esc(p.name)}.</div>`;
-  html+=`</div>`;
-
-  // where the points came from = WHICH TEAMMATES
-  const maxC=contrib.length?contrib[0].p:1;
-  html+=`<div class="section"><h2>Where the points came from</h2>
-    <div class="hint">The teammates who contributed the most to ${esc(p.name)}'s Teammates Score.</div>
-    <div class="arc-rows" id="contribRows">
-      ${contrib.slice(0,15).map(m=>contribRow(m,maxC)).join('')||'<div class="empty">No contributing teammates.</div>'}
-    </div>
-    ${contrib.length>15?`<button class="showmore" id="moreContrib" onclick="showAllContrib('${p.slug}')">Show all ${contrib.length} teammates ↓</button>`:''}
-  </div>`;
-
+  html+=`</div>
+    <div class="section"><h2>Where the points came from</h2><div class="hint">The teammates who fed ${esc(p.name)}'s score, and the accolades that did it.</div>
+    <div class="contrib" id="contribRows">${contrib.slice(0,15).map(m=>contribRow(m,contrib[0]?contrib[0].p:1)).join('')||'<div class="empty">No contributing teammates.</div>'}</div>
+    ${contrib.length>15?`<button class="showmore" onclick="showAllContrib('${p.slug}')">Show all ${contrib.length} teammates ↓</button>`:''}</div>`;
   v.innerHTML=html;
   wireSearch('cmp','cmpac',name=>navTo(`?vs=${p.slug},${slugOf(name)}`));
 }
 function contribRow(m,max){
-  return `<div class="arc-row"><span class="lab"><a href="?p=${slugOf(m.n)}" onclick="event.preventDefault();navTo('?p=${slugOf(m.n)}')">${esc(m.n)}</a></span><div class="arc-track"><div class="arc-fill" style="width:${(m.p/max*100).toFixed(1)}%"></div></div><span class="arc-pct">${fmt(m.p)}</span></div>`;
+  return `<div class="crow"><div class="who"><a href="?p=${slugOf(m.n)}" onclick="event.preventDefault();navTo('?p=${slugOf(m.n)}')">${esc(m.n)}</a><div class="accs">${esc(accSummary(m.aw,5))}</div></div>
+  <div class="track"><div class="fill" style="width:${(m.p/max*100).toFixed(1)}%"></div></div><div class="pts">${fmt(m.p)}</div></div>`;
 }
-function showAllContrib(slug){
-  const p=BY_SLUG[slug];const contrib=aggTeammates(p);const max=contrib[0].p;
-  document.getElementById('contribRows').innerHTML=contrib.map(m=>contribRow(m,max)).join('');
-  const b=document.getElementById('moreContrib');if(b)b.remove();
-}
+function showAllContrib(slug){const p=BY_SLUG[slug],c=aggTeammates(p);document.getElementById('contribRows').innerHTML=c.map(m=>contribRow(m,c[0].p)).join('');event.target.remove();}
 
 /* ---------------- HEAD TO HEAD ---------------- */
 function renderHTH(vs){
   document.getElementById('container').className='container narrow';
-  const [sa,sb]=(vs||'').split(',');
-  const pa=sa?BY_SLUG[sa]:null,pb=sb?BY_SLUG[sb]:null;
-  setMeta(pa&&pb?`${pa.name} vs ${pb.name} — who had more help? | Teammates Score | HoopsMatic`:'Head to head — Teammates Score | HoopsMatic',
-    pa&&pb?`Compare the Teammates Scores of ${pa.name} and ${pb.name}: who played alongside more talent?`:'Compare any two players by how well surrounded they were.');
-  const v=document.getElementById('view');
-  v.innerHTML=`
+  const [sa,sb]=(vs||'').split(',');const pa=sa?BY_SLUG[sa]:null,pb=sb?BY_SLUG[sb]:null;
+  setMeta(pa&&pb?`${pa.name} vs ${pb.name} — who had more help? | HoopsMatic`:'Head to head — Teammates Score | HoopsMatic',
+    pa&&pb?`Compare the Teammates Scores of ${pa.name} and ${pb.name}: who played alongside more talent?`:'Compare any two players by how well surrounded they were.',SITE+'/?vs=');
+  document.getElementById('view').innerHTML=`
     ${tabsHtml('hth')}
     <div class="hdr"><h1>Head to head</h1><span class="brand">HoopsMatic · who had more help?</span></div>
     <div class="hth-pick">
       <div class="filter-group search"><label>Player A</label><input type="text" id="hA" autocomplete="off" value="${pa?esc(pa.name):''}"><div class="ac" id="acA"></div></div>
       <div class="filter-group search"><label>Player B</label><input type="text" id="hB" autocomplete="off" value="${pb?esc(pb.name):''}"><div class="ac" id="acB"></div></div>
       <button class="btn primary" onclick="hthGo()">Compare</button>
+      ${pa&&pb?`<button class="btn" onclick="openHthCard('${pa.slug}','${pb.slug}')">Share card</button>`:''}
     </div>
     <div id="hthResult"></div>`;
-  let selA=pa?pa.name:'',selB=pb?pb.name:'';
-  wireSearch('hA','acA',n=>{selA=n;document.getElementById('hA').value=n;});
-  wireSearch('hB','acB',n=>{selB=n;document.getElementById('hB').value=n;});
-  window.hthGo=()=>{const x=document.getElementById('hA').value.trim(),y=document.getElementById('hB').value.trim();
-    if(BY_NAME[x]&&BY_NAME[y])navTo(`?vs=${slugOf(x)},${slugOf(y)}`);else alert('Pick two valid players.');};
+  wireSearch('hA','acA',n=>{document.getElementById('hA').value=n;});
+  wireSearch('hB','acB',n=>{document.getElementById('hB').value=n;});
+  window.hthGo=()=>{const x=document.getElementById('hA').value.trim(),y=document.getElementById('hB').value.trim();if(BY_NAME[x]&&BY_NAME[y])navTo(`?vs=${slugOf(x)},${slugOf(y)}`);else alert('Pick two valid players.');};
   if(pa&&pb)drawHTH(pa,pb);
 }
 function drawHTH(pa,pb){
@@ -466,94 +462,110 @@ function drawHTH(pa,pb){
     <div class="hth-grid">${hthCol(pa,awin)}${hthCol(pb,!awin)}</div>`;
 }
 function hthCol(p,win){
-  const contrib=aggTeammates(p).slice(0,8);const max=contrib.length?contrib[0].p:1;
-  return `<div class="section hth-col">
-    <h2 style="font-size:1.1rem;color:var(--text);text-transform:none;letter-spacing:-.02em;margin-bottom:.1rem">
-      <a href="?p=${p.slug}" onclick="event.preventDefault();navTo('?p=${p.slug}')" style="color:var(--text)">${esc(p.name)}</a> ${trophies(p.rings)}</h2>
-    <div class="statline" style="margin:.6rem 0 1rem">
+  const g=byAward(p),contrib=aggTeammates(p),top=contrib.slice(0,8),max=contrib[0]?contrib[0].p:1;
+  let awardHtml='';
+  for(const a of AWARD_ORDER){const inst=g[a];if(!inst||!inst.length)continue;
+    awardHtml+=`<div class="grid-award"><div class="grid-award-h" style="font-size:1rem">${esc(awLabel(a))}<span class="ct">${inst.length} · ${fmt(inst.length*SCORES[a])}</span></div>`;
+    for(const x of inst)awardHtml+=`<div class="inst"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}</span></span><span class="pts">+${fmt(SCORES[a])}</span></div>`;
+    awardHtml+=`</div>`;}
+  return `<div class="section">
+    <h2 style="font-size:1.1rem;color:var(--text);text-transform:none;letter-spacing:-.02em"><a href="?p=${p.slug}" onclick="event.preventDefault();navTo('?p=${p.slug}')" style="color:var(--text)">${esc(p.name)}</a> ${trophies(p.rings)}</h2>
+    <div class="statline" style="margin:.7rem 0 1rem">
       <div class="stat"><div class="num ${win?'accent':''}">${fmt(p.score)}</div><div class="lbl">Score</div></div>
       <div class="stat"><div class="num">#${p.rank}</div><div class="lbl">Rank</div></div>
       <div class="stat"><div class="num">${fmt(p.perSeason)}</div><div class="lbl">/season</div></div>
     </div>
-    <div class="statline" style="margin-bottom:1rem;font-size:.9rem">
-      <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.mvp}</div><div class="lbl">MVP teammates</div></div>
+    <div class="statline" style="margin-bottom:1rem">
+      <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.mvp}</div><div class="lbl">MVP</div></div>
       <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.allnba}</div><div class="lbl">All-NBA</div></div>
       <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.allstar}</div><div class="lbl">All-Star</div></div>
-      <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.rings}</div><div class="lbl">Own rings</div></div>
+      <div class="stat" style="text-align:left"><div class="num" style="font-size:1rem">${p.rings}</div><div class="lbl">Rings</div></div>
     </div>
     <h2>Where the points came from</h2>
-    <div class="arc-rows" style="margin-top:.6rem">${contrib.map(m=>contribRow(m,max)).join('')||'<div class="empty">None.</div>'}</div>
+    <div class="contrib" style="margin:.6rem 0 1.2rem">${top.map(m=>contribRow(m,max)).join('')||'<div class="empty">None.</div>'}</div>
+    <h2>Every teammate accolade</h2><div style="margin-top:.7rem">${awardHtml||'<div class="empty">None.</div>'}</div>
   </div>`;
 }
 
 /* ---------------- shared ---------------- */
-function tabsHtml(active){
-  return `<div class="tabs">
-    <a class="${active==='lb'?'active':''}" href="${HOME}" onclick="event.preventDefault();navTo('${HOME}')">Leaderboard</a>
-    <a class="${active==='hth'?'active':''}" href="?vs=" onclick="event.preventDefault();navTo('?vs=')">Head to head</a>
-  </div>`;
-}
+function tabsHtml(active){return `<div class="tabs"><a class="${active==='lb'?'active':''}" href="${HOME}" onclick="event.preventDefault();navTo('${HOME}')">Leaderboard</a><a class="${active==='hth'?'active':''}" href="?vs=" onclick="event.preventDefault();navTo('?vs=')">Head to head</a></div>`;}
 function backHtml(){return `<span class="back" onclick="navTo('${HOME}')">← Leaderboard</span>`;}
-
-function matchNames(q,limit=30){
-  q=q.toLowerCase();const s=[],i=[];
-  for(const p of DB.players){const n=p.name.toLowerCase();
-    if(n.startsWith(q))s.push(p);else if(n.includes(q))i.push(p);
-    if(s.length>limit)break;}
-  return s.concat(i).slice(0,limit);
-}
+function matchNames(q,limit=30){q=q.toLowerCase();const s=[],i=[];for(const p of DB.players){const n=p.name.toLowerCase();if(n.startsWith(q))s.push(p);else if(n.includes(q))i.push(p);if(s.length>limit)break;}return s.concat(i).slice(0,limit);}
 function wireSearch(inputId,acId,onPick){
-  const el=document.getElementById(inputId),ac=document.getElementById(acId);
-  if(!el||!ac)return;let idx=-1,list=[];
+  const el=document.getElementById(inputId),ac=document.getElementById(acId);if(!el||!ac)return;let idx=-1,list=[];
   const close=()=>{ac.classList.remove('open');idx=-1;};
-  el.addEventListener('input',()=>{
-    const q=el.value.trim();if(!q){close();return;}
-    list=matchNames(q);idx=-1;
-    ac.innerHTML=list.map(p=>`<div class="ac-item"><span class="ac-main">${esc(p.name)}</span><span class="ac-sub">${fmt(p.score)} · #${p.rank}</span></div>`).join('')||'<div class="ac-item ac-empty">No match</div>';
-    [...ac.querySelectorAll('.ac-item')].forEach((it,k)=>{if(list[k])it.onclick=()=>{close();onPick(list[k].name);};});
-    ac.classList.add('open');
-  });
-  el.addEventListener('keydown',e=>{
-    if(!ac.classList.contains('open'))return;
-    const items=ac.querySelectorAll('.ac-item');
+  el.addEventListener('input',()=>{const q=el.value.trim();if(!q){close();return;}list=matchNames(q);idx=-1;
+    ac.innerHTML=list.map(p=>`<div class="ac-item"><span class="ac-main">${esc(p.name)}</span><span class="ac-sub">${fmt(p.score)} · #${p.rank}</span></div>`).join('')||'<div class="ac-item">No match</div>';
+    [...ac.querySelectorAll('.ac-item')].forEach((it,k)=>{if(list[k])it.onclick=()=>{close();onPick(list[k].name);};});ac.classList.add('open');});
+  el.addEventListener('keydown',e=>{if(!ac.classList.contains('open'))return;const items=ac.querySelectorAll('.ac-item');
     if(e.key==='ArrowDown'){idx=Math.min(idx+1,items.length-1);hi(items);e.preventDefault();}
     else if(e.key==='ArrowUp'){idx=Math.max(idx-1,0);hi(items);e.preventDefault();}
     else if(e.key==='Enter'){if(idx>=0&&list[idx]){close();onPick(list[idx].name);}else if(list[0]){close();onPick(list[0].name);}}
-    else if(e.key==='Escape')close();
-  });
+    else if(e.key==='Escape')close();});
   function hi(items){items.forEach((it,k)=>it.classList.toggle('sel',k===idx));if(items[idx])items[idx].scrollIntoView({block:'nearest'});}
   document.addEventListener('click',e=>{if(e.target!==el&&!ac.contains(e.target))close();});
 }
 
-/* ---------------- share card ---------------- */
-let cardPlayer=null;
-function openCard(slug){
-  const p=BY_SLUG[slug];if(!p)return;cardPlayer=p;
-  const mates=aggTeammates(p).slice(0,3);
-  const tcol=p.detail.length?(TEAM_COLORS[bestSeason(p).t]||'#3b82f6'):'#3b82f6';
+/* ---------------- share cards ---------------- */
+let cardName='card';
+function photoTag(p,cls){
+  if(!HEADSHOT_BASE)return '';
+  return `<img class="photo ${cls}" crossorigin="anonymous" src="${HEADSHOT_BASE}${p.slug}${HEADSHOT_EXT}" onerror="this.style.display='none'">`;
+}
+function fitCard(){
+  const host=document.getElementById('cardHost'),el=host.firstElementChild;if(!el)return;
+  const w=el.offsetWidth||1080,h=el.offsetHeight||1350;
+  const maxW=Math.min(window.innerWidth-32,520),maxH=window.innerHeight-140;
+  const sc=Math.min(maxW/w,maxH/h,1);
+  el.style.transformOrigin='top left';el.style.transform=`scale(${sc})`;
+  const sd=document.getElementById('cardScale');sd.style.width=(w*sc)+'px';sd.style.height=(h*sc)+'px';
+}
+function openPlayerCard(slug){
+  const p=BY_SLUG[slug];if(!p)return;cardName='teammates-score-'+p.slug;
+  const mates=aggTeammates(p).slice(0,5),tcol=p.detail.length?(TEAM_COLORS[bestSeason(p).t]||'#3b82f6'):'#3b82f6';
   document.getElementById('cardHost').innerHTML=`
-    <div class="sharecard" id="shareCard">
-      <div class="bar" style="background:${tcol}"></div>
-      <div class="foot">HOOPS<b>MATIC</b></div>
-      <div class="in">
-        <div class="kick">Teammates Score</div>
-        <div class="nm">${esc(p.name)} ${p.rings?`<span class="rings">${'🏆'.repeat(p.rings)}</span>`:''}</div>
-        <div class="sc">${fmt(p.score)}</div>
-        <div class="scl">points of help · all-time #${p.rank}</div>
+    <div class="sc player" id="shareCard">
+      <div class="topbar" style="background:${tcol}"></div>
+      <div class="brand">HOOPS<b>MATIC</b></div>
+      <div class="head"><div class="kick">Teammates Score</div>
+        <div class="pname">${esc(p.name)}${p.rings?`<span class="rings">${'🏆'.repeat(p.rings)}</span>`:''}</div>${photoTag(p,'')}</div>
+      <div class="tmwrap"><div class="tmh">The talent he played with</div>
+        ${mates.map(m=>`<div class="tm"><div class="tn">${esc(m.n)}</div><div class="ta">${esc(accSummary(m.aw,3))}</div><div class="tp">${fmt(m.p)}</div></div>`).join('')||'<div class="ta">No decorated teammates</div>'}
       </div>
-      <div class="mates"><div class="h">Most valuable teammates</div>
-        ${mates.map(m=>`<div class="mate"><span>${esc(m.n)}</span><span class="mp">${fmt(m.p)}</span></div>`).join('')||'<div class="mate"><span>No decorated teammates</span></div>'}
+      <div class="scorebox"><div><div class="lbl">Teammates Score</div><div class="big">${fmt(p.score)}</div></div>
+        <div class="rk">#${p.rank}<span>all-time</span></div></div>
+    </div>`;
+  showCard();
+}
+function openHthCard(sa,sb){
+  const pa=BY_SLUG[sa],pb=BY_SLUG[sb];if(!pa||!pb)return;cardName=`teammates-${pa.slug}-vs-${pb.slug}`;
+  const awin=pa.score>=pb.score,diff=fmt(Math.abs(pa.score-pb.score));
+  const colHtml=p=>{const m=aggTeammates(p).slice(0,4);
+    return `<div class="col"><div class="ch">${esc(p.name)}</div>${m.map(x=>`<div class="tm"><div class="tn">${esc(x.n)}</div><div class="ta">${esc(accSummary(x.aw,2))}</div></div>`).join('')||'<div class="ta">No decorated teammates</div>'}</div>`;};
+  document.getElementById('cardHost').innerHTML=`
+    <div class="sc hth" id="shareCard">
+      <div class="topbar" style="background:#3b82f6"></div>
+      <div class="brand">HOOPS<b>MATIC</b></div>
+      <div class="head"><div class="kick">Teammates Score · Head to Head</div>
+        <div class="vsnames">${esc(pa.name)}<span class="v">vs</span>${esc(pb.name)}</div></div>
+      <div class="cols">${colHtml(pa)}${colHtml(pb)}</div>
+      <div class="gap">${esc(awin?pa.name:pb.name)} +${diff} more help</div>
+      <div class="scorebox">
+        <div class="s ${awin?'win':''}"><div class="big">${fmt(pa.score)}</div><div class="nm">${esc(pa.name)}</div></div>
+        <div class="s ${awin?'':'win'}"><div class="big">${fmt(pb.score)}</div><div class="nm">${esc(pb.name)}</div></div>
       </div>
     </div>`;
-  document.getElementById('cardModal').classList.add('open');
+  showCard();
 }
+function showCard(){document.getElementById('cardModal').classList.add('open');requestAnimationFrame(fitCard);}
 function closeCard(){document.getElementById('cardModal').classList.remove('open');}
+window.addEventListener('resize',()=>{if(document.getElementById('cardModal').classList.contains('open'))fitCard();});
 async function downloadCard(){
   await document.fonts.ready;
-  const canvas=await html2canvas(document.getElementById('shareCard'),{scale:2,backgroundColor:'#0f1115',useCORS:true});
-  const a=document.createElement('a');
-  a.download=`teammates-score-${cardPlayer.slug}.png`;
-  a.href=canvas.toDataURL('image/png');a.click();
+  const node=document.getElementById('shareCard'),prev=node.style.transform;node.style.transform='none';
+  const canvas=await html2canvas(node,{scale:2,backgroundColor:'#0d0f14',useCORS:true,width:node.offsetWidth,height:node.offsetHeight});
+  node.style.transform=prev;fitCard();
+  const a=document.createElement('a');a.download=cardName+'.png';a.href=canvas.toDataURL('image/png');a.click();
 }
 
 boot();
