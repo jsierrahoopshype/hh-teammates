@@ -147,7 +147,9 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .cbar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
 .cfill{width:100%;max-width:30px;background:linear-gradient(180deg,#7cb0fb,var(--accent));border-radius:4px 4px 0 0;transition:height .3s}
 .cfill.champ{background:linear-gradient(180deg,#ffd35c,#caa23a)}
-.cbar .tro{position:absolute;top:-24px;font-size:.85rem;line-height:1}
+.cfill{position:relative}
+.cbar .tro{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:1rem;line-height:1}
+.cyl.champ{color:var(--gold,#caa23a);font-weight:700}
 .cyl{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--text-secondary);margin-top:5px;white-space:nowrap}
 @media(max-width:860px){.chart{height:150px;gap:2px}.cyl{font-size:.45rem}.cfill{max-width:18px}}
 /* share modal + cards */
@@ -185,24 +187,28 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.player .photo{top:70px;right:54px;width:340px;height:340px}
 /* hth card 1080x1350 */
 .sc.hth{width:1200px;height:1500px}
-.sc.hth .kick{font-size:30px}
-.sc.hth .head{padding:70px 70px 0;text-align:center}
-.sc.hth .expl{font-size:28px;color:#aeb6c6;margin-top:12px}
-.sc.hth .vsnames{font-size:74px;font-weight:800;letter-spacing:-.02em;line-height:1.04;margin-top:18px}
-.sc.hth .vsnames .v{color:#3b82f6;font-family:'JetBrains Mono',monospace;font-size:40px;display:block;margin:10px 0}
-.sc.hth .cols{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:54px 56px 0}
-.sc.hth .col{padding:0 22px}
-.sc.hth .col+.col{border-left:2px solid #232838}
-.sc.hth .ch{font-size:34px;font-weight:700;color:#fff;margin-bottom:24px;text-align:center;line-height:1.1}
-.sc.hth .tm{padding:18px 0;border-top:1px solid #232838}
-.sc.hth .tm .tn{font-size:34px;font-weight:700}
-.sc.hth .tm .ta{font-family:'JetBrains Mono',monospace;font-size:22px;color:#c3cad8;margin-top:5px;line-height:1.3}
-.sc.hth .scorebox{position:absolute;left:0;right:0;bottom:0;padding:50px 56px;background:linear-gradient(180deg,transparent,#06070a 42%);display:grid;grid-template-columns:1fr 1fr;gap:0;text-align:center}
-.sc.hth .scorebox .s .big{font-family:'JetBrains Mono',monospace;font-size:140px;font-weight:700;line-height:.78}
-.sc.hth .scorebox .s.win .big{color:#3b82f6}
-.sc.hth .scorebox .s .nm{font-size:34px;font-weight:700;margin-top:12px}
-.sc.hth .scorebox .s .sl{font-family:'JetBrains Mono',monospace;font-size:20px;color:#9aa3b4;text-transform:uppercase;letter-spacing:.12em;margin-top:4px}
-.sc.hth .gap{position:absolute;left:50%;bottom:340px;transform:translateX(-50%);font-family:'JetBrains Mono',monospace;font-size:28px;color:#fff;background:#3b82f6;padding:12px 26px;border-radius:30px;font-weight:700;white-space:nowrap}
+.sc.hth .kick{font-size:28px}
+.sc.hth .head{padding:60px 70px 0;text-align:center}
+.sc.hth .q{font-size:92px;font-weight:800;letter-spacing:-.03em;margin-top:12px;line-height:1}
+.sc.hth .matchup{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;padding:44px 56px 0}
+.sc.hth .side{text-align:center;padding:34px 18px;border-radius:24px;border:2px solid transparent}
+.sc.hth .side.win{background:rgba(59,130,246,.13);border-color:rgba(59,130,246,.55)}
+.sc.hth .side .pn{font-size:50px;font-weight:800;line-height:1.04}
+.sc.hth .side .rg{font-size:28px;letter-spacing:-.1em;margin-top:10px;height:34px;color:#caa23a}
+.sc.hth .side .scn{font-family:'JetBrains Mono',monospace;font-size:132px;font-weight:700;line-height:.82;margin-top:16px;color:#9aa3b4}
+.sc.hth .side.win .scn{color:#3b82f6}
+.sc.hth .side .sl{font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:.12em;text-transform:uppercase;color:#8a93a6;margin-top:10px}
+.sc.hth .vs{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;color:#3b82f6;text-align:center}
+.sc.hth .evid{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:40px 70px 0}
+.sc.hth .ecol{padding:0 28px}
+.sc.hth .ecol+.ecol{border-left:2px solid #232838}
+.sc.hth .eh{font-family:'JetBrains Mono',monospace;font-size:21px;letter-spacing:.16em;text-transform:uppercase;color:#8a93a6;text-align:center;margin-bottom:18px}
+.sc.hth .er{padding:16px 0;border-top:1px solid #232838}
+.sc.hth .er .en{font-size:34px;font-weight:700;line-height:1.05}
+.sc.hth .er .ea{font-family:'JetBrains Mono',monospace;font-size:23px;color:#3b82f6;margin-top:5px}
+.sc.hth .concl{position:absolute;left:0;right:0;bottom:0;padding:42px 70px;background:#3b82f6;text-align:center}
+.sc.hth .concl .big{font-size:58px;font-weight:800;color:#fff;line-height:1.06}
+.sc.hth .concl .sub{font-family:'JetBrains Mono',monospace;font-size:24px;color:rgba(255,255,255,.88);margin-top:10px;letter-spacing:.02em}
 
 @media(max-width:860px){
   .filter-row{grid-template-columns:1fr 1fr;gap:.45rem}
@@ -257,7 +263,7 @@ const HOME=location.pathname;
 
 async function boot(){
   try{
-    const res=await fetch(DATA_URL,{cache:"force-cache"});
+    const res=await fetch(DATA_URL,{cache:"no-cache"});
     DB=await res.json();SCORES=DB.scores;TEAMS=DB.teams||{};
     DB.players.forEach(p=>{BY_NAME[p.name]=p;BY_SLUG[p.slug]=p;});
     buildEras();route();
@@ -277,7 +283,7 @@ function aggTeammates(p){
 function accSummary(awObj,limit=4){
   const parts=[];
   for(const a of AWARD_ORDER)if(awObj[a])parts.push(`${awObj[a]}× ${awLabel(a)}`);
-  return parts.slice(0,limit).join(' · ')+(parts.length>limit?' …':'');
+  return parts.slice(0,limit).join(' · ');
 }
 function bestSeason(p){let b=null;for(const s of p.detail)if(!b||s.pts>b.pts)b=s;return b;}
 function byAward(p){
@@ -442,8 +448,8 @@ function seasonChart(p){
   const titles=new Set(p.titleYears||[]);
   const yrs=p.years||[]; if(!yrs.length) return '';
   const max=Math.max(1,...yrs.map(y=>byYear[y]||0));
-  const bars=yrs.map(y=>{const v=byYear[y]||0,h=Math.max(2,v/max*100);
-    return `<div class="cbar" title="${y}: ${fmt(v)} pts of help${titles.has(y)?' · NBA champion':''}">${titles.has(y)?'<span class="tro">🏆</span>':''}<div class="cfill ${titles.has(y)?'champ':''}" style="height:${h.toFixed(1)}%"></div><span class="cyl">'${String(y).slice(2)}</span></div>`;}).join('');
+  const bars=yrs.map(y=>{const v=byYear[y]||0,h=Math.max(2,v/max*100),champ=titles.has(y);
+    return `<div class="cbar" title="${y}: ${fmt(v)} pts of help${champ?' · NBA champion':''}"><div class="cfill ${champ?'champ':''}" style="height:${h.toFixed(1)}%">${champ?'<span class="tro">🏆</span>':''}</div><span class="cyl ${champ?'champ':''}">'${String(y).slice(2)}</span></div>`;}).join('');
   return `<div class="section"><h2>Teammates Score by season</h2><div class="hint">Help received each season across ${yrs.length} years. 🏆 marks a championship season. Hover a bar for the year and points.</div><div class="chart">${bars}</div></div>`;
 }
 function contribRow(m,max){
@@ -476,11 +482,11 @@ function renderHTH(vs){
 function drawHTH(pa,pb){
   const awin=pa.score>=pb.score,diff=Math.abs(pa.score-pb.score);
   const cWin=awin?pa:pb, sWin=pa.perSeason>=pb.perSeason?pa:pb, sOther=sWin===pa?pb:pa;
-  const line2 = sWin===cWin
-    ? `And he led per season too: <b>${fmt(sWin.perSeason)}</b> vs ${fmt(sOther.perSeason)} points of help a season.`
-    : `But season for season, <b>${esc(sWin.name)}</b> had more help: <b>${fmt(sWin.perSeason)}</b> vs ${fmt(sOther.perSeason)} points a season (career totals reward the longer career).`;
+  const verdict = sWin===cWin
+    ? `<b>${esc(cWin.name)}</b> had more help both ways: <b>${fmt(diff)}</b> Teammates Score points more over his career, and the edge year for year too (${fmt(sWin.perSeason)} to ${fmt(sOther.perSeason)} per season).`
+    : `<b>${esc(cWin.name)}</b> piled up more help over a longer career, by <b>${fmt(diff)}</b> Teammates Score points. Adjust for longevity, though, and <b>${esc(sWin.name)}</b> takes it: ${fmt(sWin.perSeason)} to ${fmt(sOther.perSeason)} in help per season.`;
   document.getElementById('hthResult').innerHTML=`
-    <div class="hth-verdict"><b>${esc(cWin.name)}</b> was better surrounded over his career, by <b>${fmt(diff)}</b> Teammates Score points. ${line2}</div>
+    <div class="hth-verdict">${verdict}</div>
     <div class="hth-grid">${hthCol(pa,awin)}${hthCol(pb,!awin)}</div>`;
 }
 function hthCol(p,win){
@@ -560,24 +566,24 @@ function openPlayerCard(slug){
     </div>`;
   showCard();
 }
+function marquee(awObj){
+  for(const a of AWARD_ORDER) if(awObj[a]){const c=awObj[a];return (c>1?c+'× ':'')+awLabel(a);}
+  return '';
+}
 function openHthCard(sa,sb){
   const pa=BY_SLUG[sa],pb=BY_SLUG[sb];if(!pa||!pb)return;cardName=`teammates-${pa.slug}-vs-${pb.slug}`;
   const awin=pa.score>=pb.score,diff=fmt(Math.abs(pa.score-pb.score));
-  const colHtml=p=>{const m=aggTeammates(p).slice(0,4);
-    return `<div class="col"><div class="ch">${esc(p.name)}</div>${m.map(x=>`<div class="tm"><div class="tn">${esc(x.n)}</div><div class="ta">${esc(accSummary(x.aw,3))}</div></div>`).join('')||'<div class="ta">No decorated teammates</div>'}</div>`;};
+  const wname=awin?pa.name:pb.name, sWin=pa.perSeason>=pb.perSeason?pa:pb;
+  const side=(p,win)=>`<div class="side ${win?'win':''}"><div class="pn">${esc(p.name)}</div><div class="rg">${p.rings?'🏆'.repeat(p.rings):''}</div><div class="scn">${fmt(p.score)}</div><div class="sl">Teammates Score</div></div>`;
+  const ecol=p=>{const m=aggTeammates(p).slice(0,3);return `<div class="ecol"><div class="eh">Played alongside</div>${m.map(x=>`<div class="er"><div class="en">${esc(x.n)}</div><div class="ea">${esc(marquee(x.aw))}</div></div>`).join('')||'<div class="er"><div class="ea">No decorated teammates</div></div>'}</div>`;};
   document.getElementById('cardHost').innerHTML=`
     <div class="sc hth" id="shareCard">
       <div class="topbar" style="background:#3b82f6"></div>
       <div class="brand">HOOPS<b>MATIC</b></div>
-      <div class="head"><div class="kick">Teammates Score · Head to Head</div>
-        <div class="expl">Who played alongside more talent? Every accolade their teammates won, scored.</div>
-        <div class="vsnames">${esc(pa.name)}<span class="v">vs</span>${esc(pb.name)}</div></div>
-      <div class="cols">${colHtml(pa)}${colHtml(pb)}</div>
-      <div class="gap">${esc(awin?pa.name:pb.name)} +${diff} more help</div>
-      <div class="scorebox">
-        <div class="s ${awin?'win':''}"><div class="big">${fmt(pa.score)}</div><div class="nm">${esc(pa.name)}</div><div class="sl">Teammates Score</div></div>
-        <div class="s ${awin?'':'win'}"><div class="big">${fmt(pb.score)}</div><div class="nm">${esc(pb.name)}</div><div class="sl">Teammates Score</div></div>
-      </div>
+      <div class="head"><div class="kick">Teammates Score · Head to Head</div><div class="q">Who had more help?</div></div>
+      <div class="matchup">${side(pa,awin)}<div class="vs">VS</div>${side(pb,!awin)}</div>
+      <div class="evid">${ecol(pa)}${ecol(pb)}</div>
+      <div class="concl"><div class="big">${esc(wname)} had +${diff} more help</div><div class="sub">Teammates Score · ${esc(sWin.name)} also led per season</div></div>
     </div>`;
   showCard();
 }
