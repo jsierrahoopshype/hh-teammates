@@ -47,12 +47,15 @@ def lab(a): return AWARD_LABEL.get(a, a)
 
 def load(awards_path, stats_path):
     awards_by = defaultdict(list); rings = defaultdict(int); award_team = {}
+    title_years = defaultdict(set)
     with open(awards_path, encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             a=(row.get("AWARD") or "").strip(); p=(row.get("PLAYER / COACH") or "").strip()
             y=(row.get("YEAR") or "").strip(); t=(row.get("TEAM") or "").strip()
             if not p: continue
-            if a=="NBA Champion": rings[p]+=1
+            if a=="NBA Champion":
+                rings[p]+=1
+                if y.isdigit(): title_years[p].add(int(y))
             if y.isdigit() and t: award_team[(p,int(y))]=t
             if a in SCORES and y.isdigit(): awards_by[(p,int(y))].append(a)
     rosters=defaultdict(set); pseasons=defaultdict(set); pyears=defaultdict(set); ptc=defaultdict(set)
@@ -68,9 +71,9 @@ def load(awards_path, stats_path):
             if fn: a2n[next(iter(abbrs))][fn]+=1
     teams={ab:c.most_common(1)[0][0] for ab,c in a2n.items()}
     for ab in {t for (_,t) in rosters}: teams.setdefault(ab, TEAM_FALLBACK.get(ab,ab))
-    return awards_by, rings, rosters, pseasons, pyears, teams
+    return awards_by, rings, rosters, pseasons, pyears, teams, title_years
 
-def build_players(awards_by, rings, rosters, pseasons, pyears):
+def build_players(awards_by, rings, rosters, pseasons, pyears, title_years):
     players=[]
     for p,seasons in pseasons.items():
         detail=[]; total=0.0; cM=cN=cS=0
@@ -92,7 +95,8 @@ def build_players(awards_by, rings, rosters, pseasons, pyears):
         ns=len(pyears[p])
         players.append({"name":p,"score":round(total,3),"seasons":ns,
             "perSeason":round(total/ns,3) if ns else 0,"rings":rings.get(p,0),
-            "mvp":cM,"allnba":cN,"allstar":cS,"years":sorted(pyears[p]),"detail":detail})
+            "mvp":cM,"allnba":cN,"allstar":cS,"years":sorted(pyears[p]),
+            "titleYears":sorted(title_years.get(p,[])),"detail":detail})
     players.sort(key=lambda x:-x["score"])
     used=set()
     for i,pl in enumerate(players,1):
@@ -173,8 +177,8 @@ def main():
     ap.add_argument("--no-pages", action="store_true")
     args=ap.parse_args()
 
-    awards_by,rings,rosters,pseasons,pyears,teams=load(args.awards,args.stats)
-    players=build_players(awards_by,rings,rosters,pseasons,pyears)
+    awards_by,rings,rosters,pseasons,pyears,teams,title_years=load(args.awards,args.stats)
+    players=build_players(awards_by,rings,rosters,pseasons,pyears,title_years)
 
     os.makedirs(os.path.dirname(args.out),exist_ok=True)
     with open(args.out,"w",encoding="utf-8") as f:
