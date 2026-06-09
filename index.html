@@ -104,6 +104,9 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.primary:hover{color:#fff;opacity:.92}
 .compare-inline{position:relative;min-width:13rem}
+.pagesearch{position:relative;max-width:560px;margin:0 0 1.2rem}
+.pagesearch.bottom{margin:1.6rem auto 0}
+.pagesearch .filter-group.search{position:relative}
 .compare-inline label{display:block;font-size:.6rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.25rem}
 
 .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1.1rem}
@@ -174,7 +177,8 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.player .head{padding:70px 70px 0}
 .sc.player .tmwrap{padding:56px 70px 0}
 .sc.player .tmh{font-family:'JetBrains Mono',monospace;font-size:32px;letter-spacing:.16em;text-transform:uppercase;color:#3b82f6;font-weight:600;margin-bottom:30px}
-.sc.player .tm{display:flex;align-items:baseline;gap:20px;padding:22px 0;border-top:2px solid #232838}
+.sc.player .tm{display:flex;align-items:baseline;gap:20px;padding:18px 0;border-top:2px solid #232838}
+.sc.player .tm.others .tn{color:#aeb6c6}
 .sc.player .tm:last-child{border-bottom:2px solid #1c2029}
 .sc.player .tm .tn{font-size:48px;font-weight:700;width:470px;flex:none}
 .sc.player .tm .ta{font-family:'JetBrains Mono',monospace;font-size:27px;color:#c3cad8;flex:1;line-height:1.35}
@@ -186,11 +190,11 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.player .scorebox .rk span{display:block;font-size:26px;color:#9aa3b4;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-top:8px}
 .sc.player .photo{top:70px;right:54px;width:340px;height:340px}
 /* hth card 1080x1350 */
-.sc.hth{width:1200px;height:1500px}
+.sc.hth{width:1200px;height:1760px}
 .sc.hth .kick{font-size:28px}
 .sc.hth .head{padding:60px 70px 0;text-align:center}
 .sc.hth .q{font-size:92px;font-weight:800;letter-spacing:-.03em;margin-top:12px;line-height:1}
-.sc.hth .matchup{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;padding:44px 56px 0}
+.sc.hth .matchup{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;padding:40px 56px 0}
 .sc.hth .side{text-align:center;padding:34px 18px;border-radius:24px;border:2px solid transparent}
 .sc.hth .side.win{background:rgba(59,130,246,.13);border-color:rgba(59,130,246,.55)}
 .sc.hth .side .pn{font-size:50px;font-weight:800;line-height:1.04}
@@ -199,13 +203,14 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.hth .side.win .scn{color:#3b82f6}
 .sc.hth .side .sl{font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:.12em;text-transform:uppercase;color:#8a93a6;margin-top:10px}
 .sc.hth .vs{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;color:#3b82f6;text-align:center}
-.sc.hth .evid{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:40px 70px 0}
-.sc.hth .ecol{padding:0 28px}
+.sc.hth .evid{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:36px 64px 0}
+.sc.hth .ecol{padding:0 26px}
 .sc.hth .ecol+.ecol{border-left:2px solid #232838}
 .sc.hth .eh{font-family:'JetBrains Mono',monospace;font-size:21px;letter-spacing:.16em;text-transform:uppercase;color:#8a93a6;text-align:center;margin-bottom:18px}
-.sc.hth .er{padding:16px 0;border-top:1px solid #232838}
-.sc.hth .er .en{font-size:34px;font-weight:700;line-height:1.05}
-.sc.hth .er .ea{font-family:'JetBrains Mono',monospace;font-size:23px;color:#3b82f6;margin-top:5px}
+.sc.hth .er{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:baseline;padding:15px 0;border-top:1px solid #232838}
+.sc.hth .er .en{font-size:32px;font-weight:700;line-height:1.06}
+.sc.hth .er .ea{font-family:'JetBrains Mono',monospace;font-size:21px;color:#c3cad8;margin-top:5px;line-height:1.3}
+.sc.hth .er .ep{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;color:#3b82f6}
 .sc.hth .concl{position:absolute;left:0;right:0;bottom:0;padding:42px 70px;background:#3b82f6;text-align:center}
 .sc.hth .concl .big{font-size:58px;font-weight:800;color:#fff;line-height:1.06}
 .sc.hth .concl .sub{font-family:'JetBrains Mono',monospace;font-size:24px;color:rgba(255,255,255,.88);margin-top:10px;letter-spacing:.02em}
@@ -373,8 +378,10 @@ function renderLeaderboard(){
       <tr class="grouphead"><th></th><th></th><th></th><th class="grp" colspan="3">▼ Accolades won by teammates ▼</th><th></th></tr>
       <tr class="cols" id="head"></tr>
     </thead><tbody id="body"></tbody></table></div>
-    <div class="cards" id="cards"></div>`;
+    <div class="cards" id="cards"></div>
+    ${pageSearch('lbSearchB','bottom')}`;
   wireSearch('q','ac',name=>navTo('?p='+slugOf(name)));
+  wirePageSearch('lbSearchB');
   fillLB();
 }
 function setMode(m){lbMode=m;if(lbSort.key==='score')lbSort.dir=-1;renderLeaderboard();}
@@ -413,6 +420,7 @@ function renderPlayer(slug){
   const g=byAward(p),best=bestSeason(p),contrib=aggTeammates(p),topMate=contrib[0];
   const totalAcc=p.detail.reduce((n,s)=>n+s.mates.reduce((m,x)=>m+x.a.length,0),0);
   let html=`${backHtml()}
+    ${pageSearch('pSearchT')}
     <div class="phead"><div>
       <h1>${esc(p.name)} ${trophies(p.rings)}</h1>
       <div class="team">${p.seasons} seasons · ${p.detail.length} alongside an award winner${p.rings?` · ${p.rings} NBA ${p.rings>1?'titles':'title'}`:''}</div>
@@ -439,9 +447,11 @@ function renderPlayer(slug){
     <div class="section"><h2>Where the points came from</h2><div class="hint">The teammates who fed ${esc(p.name)}'s score, and the accolades that did it.</div>
     <div class="contrib" id="contribRows">${contrib.slice(0,15).map(m=>contribRow(m,contrib[0]?contrib[0].p:1)).join('')||'<div class="empty">No contributing teammates.</div>'}</div>
     ${contrib.length>15?`<button class="showmore" onclick="showAllContrib('${p.slug}')">Show all ${contrib.length} teammates ↓</button>`:''}</div>
-    ${seasonChart(p)}`;
+    ${seasonChart(p)}
+    ${pageSearch('pSearchB','bottom')}`;
   v.innerHTML=html;
   wireSearch('cmp','cmpac',name=>navTo(`?vs=${p.slug},${slugOf(name)}`));
+  wirePageSearch('pSearchT');wirePageSearch('pSearchB');
 }
 function seasonChart(p){
   const byYear={}; for(const s of p.detail) byYear[s.y]=s.pts;
@@ -467,14 +477,17 @@ function renderHTH(vs){
   document.getElementById('view').innerHTML=`
     ${tabsHtml('hth')}
     <div class="hdr"><h1>Head to head</h1><span class="brand">HoopsMatic · who had more help?</span></div>
+    ${pageSearch('hSearchT')}
     <div class="hth-pick">
       <div class="filter-group search"><label>Player A</label><input type="text" id="hA" autocomplete="off" value="${pa?esc(pa.name):''}"><div class="ac" id="acA"></div></div>
       <div class="filter-group search"><label>Player B</label><input type="text" id="hB" autocomplete="off" value="${pb?esc(pb.name):''}"><div class="ac" id="acB"></div></div>
       <button class="btn primary" onclick="hthGo()">Compare</button>
       ${pa&&pb?`<button class="btn" onclick="openHthCard('${pa.slug}','${pb.slug}')">Share card</button>`:''}
     </div>
-    <div id="hthResult"></div>`;
+    <div id="hthResult"></div>
+    ${pageSearch('hSearchB','bottom')}`;
   wireSearch('hA','acA',n=>{document.getElementById('hA').value=n;});
+  wirePageSearch('hSearchT');wirePageSearch('hSearchB');
   wireSearch('hB','acB',n=>{document.getElementById('hB').value=n;});
   window.hthGo=()=>{const x=document.getElementById('hA').value.trim(),y=document.getElementById('hB').value.trim();if(BY_NAME[x]&&BY_NAME[y])navTo(`?vs=${slugOf(x)},${slugOf(y)}`);else alert('Pick two valid players.');};
   if(pa&&pb)drawHTH(pa,pb);
@@ -518,6 +531,8 @@ function hthCol(p,win){
 /* ---------------- shared ---------------- */
 function tabsHtml(active){return `<div class="tabs"><a class="${active==='lb'?'active':''}" href="${HOME}" onclick="event.preventDefault();navTo('${HOME}')">Leaderboard</a><a class="${active==='hth'?'active':''}" href="?vs=" onclick="event.preventDefault();navTo('?vs=')">Head to head</a></div>`;}
 function backHtml(){return `<span class="back" onclick="navTo('${HOME}')">← Leaderboard</span>`;}
+function pageSearch(id,pos){return `<div class="pagesearch ${pos||''}"><div class="filter-group search"><label>Search any player</label><input type="text" id="${id}" placeholder="Jump to a player…" autocomplete="off"><div class="ac" id="${id}-ac"></div></div></div>`;}
+function wirePageSearch(id){wireSearch(id,id+'-ac',name=>navTo('?p='+slugOf(name)));}
 function matchNames(q,limit=30){q=q.toLowerCase();const s=[],i=[];for(const p of DB.players){const n=p.name.toLowerCase();if(n.startsWith(q))s.push(p);else if(n.includes(q))i.push(p);if(s.length>limit)break;}return s.concat(i).slice(0,limit);}
 function wireSearch(inputId,acId,onPick){
   const el=document.getElementById(inputId),ac=document.getElementById(acId);if(!el||!ac)return;let idx=-1,list=[];
@@ -536,6 +551,7 @@ function wireSearch(inputId,acId,onPick){
 
 /* ---------------- share cards ---------------- */
 let cardName='card';
+function othersAgg(rest){const ra={};let rp=0;rest.forEach(m=>{rp+=m.p;for(const a in m.aw)ra[a]=(ra[a]||0)+m.aw[a];});return {n:rest.length,p:rp,aw:ra};}
 function photoTag(p,cls){
   if(!HEADSHOT_BASE)return '';
   return `<img class="photo ${cls}" crossorigin="anonymous" src="${HEADSHOT_BASE}${p.slug}${HEADSHOT_EXT}" onerror="this.style.display='none'">`;
@@ -550,7 +566,11 @@ function fitCard(){
 }
 function openPlayerCard(slug){
   const p=BY_SLUG[slug];if(!p)return;cardName='teammates-score-'+p.slug;
-  const mates=aggTeammates(p).slice(0,5),tcol=p.detail.length?(TEAM_COLORS[bestSeason(p).t]||'#3b82f6'):'#3b82f6';
+  const all=aggTeammates(p),top=all.slice(0,5),rest=all.slice(5);
+  const tcol=p.detail.length?(TEAM_COLORS[bestSeason(p).t]||'#3b82f6'):'#3b82f6';
+  let rows=top.map(m=>`<div class="tm"><div class="tn">${esc(m.n)}</div><div class="ta">${esc(accSummary(m.aw,3))}</div><div class="tp">${fmt(m.p)}</div></div>`).join('');
+  if(rest.length){const o=othersAgg(rest);rows+=`<div class="tm others"><div class="tn">${o.n} other teammate${o.n>1?'s':''}</div><div class="ta">${esc(accSummary(o.aw,4))}</div><div class="tp">${fmt(o.p)}</div></div>`;}
+  if(!all.length)rows='<div class="ta">No decorated teammates</div>';
   document.getElementById('cardHost').innerHTML=`
     <div class="sc player" id="shareCard">
       <div class="topbar" style="background:${tcol}"></div>
@@ -558,9 +578,7 @@ function openPlayerCard(slug){
       <div class="head"><div class="kick">Teammates Score</div>
         <div class="expl">How much talent did he play with? We score every accolade his teammates won while they were teammates.</div>
         <div class="pname">${esc(p.name)}${p.rings?`<span class="rings">${'🏆'.repeat(p.rings)}</span>`:''}</div>${photoTag(p,'')}</div>
-      <div class="tmwrap"><div class="tmh">The talent he played with</div>
-        ${mates.map(m=>`<div class="tm"><div class="tn">${esc(m.n)}</div><div class="ta">${esc(accSummary(m.aw,3))}</div><div class="tp">${fmt(m.p)}</div></div>`).join('')||'<div class="ta">No decorated teammates</div>'}
-      </div>
+      <div class="tmwrap"><div class="tmh">The talent he played with</div>${rows}</div>
       <div class="scorebox"><div><div class="lbl">Teammates Score</div><div class="big">${fmt(p.score)}</div></div>
         <div class="rk">#${p.rank}<span>all-time</span></div></div>
     </div>`;
@@ -575,7 +593,10 @@ function openHthCard(sa,sb){
   const awin=pa.score>=pb.score,diff=fmt(Math.abs(pa.score-pb.score));
   const wname=awin?pa.name:pb.name, sWin=pa.perSeason>=pb.perSeason?pa:pb;
   const side=(p,win)=>`<div class="side ${win?'win':''}"><div class="pn">${esc(p.name)}</div><div class="rg">${p.rings?'🏆'.repeat(p.rings):''}</div><div class="scn">${fmt(p.score)}</div><div class="sl">Teammates Score</div></div>`;
-  const ecol=p=>{const m=aggTeammates(p).slice(0,3);return `<div class="ecol"><div class="eh">Played alongside</div>${m.map(x=>`<div class="er"><div class="en">${esc(x.n)}</div><div class="ea">${esc(marquee(x.aw))}</div></div>`).join('')||'<div class="er"><div class="ea">No decorated teammates</div></div>'}</div>`;};
+  const ecol=p=>{const all=aggTeammates(p),top=all.slice(0,5),rest=all.slice(5);
+    let rows=top.map(x=>`<div class="er"><div><div class="en">${esc(x.n)}</div><div class="ea">${esc(accSummary(x.aw,3))}</div></div><div class="ep">${fmt(x.p)}</div></div>`).join('');
+    if(rest.length){const o=othersAgg(rest);rows+=`<div class="er"><div><div class="en" style="color:#aeb6c6">${o.n} other teammate${o.n>1?'s':''}</div><div class="ea">${esc(accSummary(o.aw,3))}</div></div><div class="ep">${fmt(o.p)}</div></div>`;}
+    return `<div class="ecol"><div class="eh">Played alongside</div>${rows||'<div class="er"><div class="ea">No decorated teammates</div></div>'}</div>`;};
   document.getElementById('cardHost').innerHTML=`
     <div class="sc hth" id="shareCard">
       <div class="topbar" style="background:#3b82f6"></div>
