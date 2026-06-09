@@ -31,6 +31,7 @@ AWARD_LABEL = {
     "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
     "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team",
 }
+HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/"
 TEAM_FALLBACK = {
     "WSC":"Washington Capitols","DTF":"Detroit Falcons","PRO":"Providence Steamrollers",
     "STB":"St. Louis Bombers","CLR":"Cleveland Rebels","CHS":"Chicago Stags","TOH":"Toronto Huskies",
@@ -44,6 +45,18 @@ def slugify(name):
     s = re.sub(r"[^a-zA-Z0-9]+","-",s).strip("-").lower()
     return s or "player"
 def lab(a): return AWARD_LABEL.get(a, a)
+def norm_name(s):
+    s=unicodedata.normalize("NFKD",s).encode("ascii","ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+"," ",s).strip()
+def load_headshots(path):
+    if not os.path.exists(path): return {}
+    try: data=json.load(open(path,encoding="utf-8"))
+    except Exception: return {}
+    m={}
+    for p in data.get("players",[]):
+        fn=(p.get("headshot") or {}).get("filename")
+        if fn: m[norm_name(p.get("full_name",""))]=fn
+    return m
 
 def load(awards_path, stats_path):
     awards_by = defaultdict(list); rings = defaultdict(int); award_team = {}
@@ -122,6 +135,7 @@ def write_stub(p, teams, site, outdir):
         items+=f"<li><b>{html.escape(nm)}</b> — {html.escape(', '.join(accs[:4]))}</li>"
     desc=(f'{p["name"]} has a Teammates Score of {scs}, ranked #{p["rank"]} of all time. '
           f'See every accolade won by the teammates {p["name"]} shared a roster with.')
+    og_img = (HS_BASE+p["hs"]) if p.get("hs") else f"{site}/og.png"
     url=f'{site}/p/{p["slug"]}.html'
     doc=f"""<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -132,11 +146,11 @@ def write_stub(p, teams, site, outdir):
 <meta property="og:title" content="{name} — NBA Teammates Score">
 <meta property="og:description" content="{html.escape(desc)}">
 <meta property="og:url" content="{url}">
-<meta property="og:image" content="{site}/og.png">
+<meta property="og:image" content="{og_img}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{name} — NBA Teammates Score">
 <meta name="twitter:description" content="{html.escape(desc)}">
-<meta name="twitter:image" content="{site}/og.png">
+<meta name="twitter:image" content="{og_img}">
 <script>location.replace("../?p={p['slug']}");</script>
 </head><body>
 <main>
@@ -174,11 +188,17 @@ def main():
     ap.add_argument("--stats",  default="All-Time_Database_2_0_-_RS_Stats__3_.csv")
     ap.add_argument("--out",    default="data/teammates.json")
     ap.add_argument("--site",   default="https://jsierrahoopshype.github.io/hh-teammates")
+    ap.add_argument("--headshots", default="data/headshots.json")
     ap.add_argument("--no-pages", action="store_true")
     args=ap.parse_args()
 
     awards_by,rings,rosters,pseasons,pyears,teams,title_years=load(args.awards,args.stats)
     players=build_players(awards_by,rings,rosters,pseasons,pyears,title_years)
+    hs=load_headshots(args.headshots); hits=0
+    for p in players:
+        f=hs.get(norm_name(p["name"]))
+        if f: p["hs"]=f; hits+=1
+    print(f"Headshots attached: {hits}/{len(players)} players")
 
     os.makedirs(os.path.dirname(args.out),exist_ok=True)
     with open(args.out,"w",encoding="utf-8") as f:
