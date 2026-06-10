@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teammates Score — Head-to-Head Video Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@latest/build/mp4-muxer.js"></script>
+<style>
+  :root{
+    --bg:#0d0f14; --panel:#151922; --text:#f5f5f7; --accent:#3b82f6;
+    --sec:#8a93a6; --gold:#caa23a; --line:#222836;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;}
+  header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.2px}
+  header .mark{font-weight:800;color:var(--accent);letter-spacing:1px;font-size:13px;margin-left:auto}
+  .wrap{display:flex;gap:22px;padding:22px;flex-wrap:wrap;align-items:flex-start}
+  .controls{flex:0 0 360px;max-width:100%;display:flex;flex-direction:column;gap:14px}
+  .stage{flex:1 1 480px;min-width:320px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--sec);font-weight:700}
+  label{display:block;font-size:12px;color:var(--sec);margin:10px 0 5px;font-weight:600}
+  input[type=text],select,input[type=number]{
+    width:100%;background:#0e1219;border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:10px 11px;font-family:inherit;font-size:14px;
+  }
+  input[type=color]{width:46px;height:34px;border:1px solid var(--line);border-radius:8px;background:#0e1219;padding:2px;vertical-align:middle}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{flex:1;background:#0e1219;color:var(--sec);border:none;padding:9px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:600}
+  .seg button.on{background:var(--accent);color:#fff}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px 14px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;width:100%}
+  .btn.ghost{background:#0e1219;border:1px solid var(--line);color:var(--text)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btns{display:flex;gap:10px;margin-top:6px}
+  canvas#preview{width:100%;background:#000;border-radius:14px;border:1px solid var(--line);display:block}
+  .progress{height:10px;background:#0e1219;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+  .meta{font-size:12px;color:var(--sec);line-height:1.5}
+  .meta b{color:var(--text)}
+  .hint{font-size:11px;color:var(--sec);margin-top:4px}
+  .pill{display:inline-block;background:#0e1219;border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:11px;color:var(--sec);margin:2px 4px 0 0}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Teammates Score — Head-to-Head Video</h1>
+  <span class="mark">HOOPSMATIC</span>
+</header>
+
+<div class="wrap">
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls">
+    <div class="card">
+      <h2>Matchup</h2>
+      <label>Player A</label>
+      <input type="text" id="pa" list="playerlist" placeholder="Search player…" autocomplete="off">
+      <label>Player B</label>
+      <input type="text" id="pb" list="playerlist" placeholder="Search player…" autocomplete="off">
+      <datalist id="playerlist"></datalist>
+      <div id="matchmeta" class="meta" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Format</h2>
+      <label>Resolution</label>
+      <select id="res">
+        <option value="1920x1080">1920 × 1080 (landscape)</option>
+        <option value="1280x720">1280 × 720 (landscape)</option>
+        <option value="1080x1080" selected>1080 × 1080 (square)</option>
+        <option value="1080x1920">1080 × 1920 (portrait)</option>
+      </select>
+      <div class="row">
+        <div>
+          <label>FPS</label>
+          <select id="fps">
+            <option value="24">24</option>
+            <option value="30">30</option>
+            <option value="60" selected>60</option>
+          </select>
+        </div>
+        <div>
+          <label>Target duration</label>
+          <select id="dur">
+            <option value="auto" selected>Auto (~60s)</option>
+            <option value="30">~30s</option>
+            <option value="45">~45s</option>
+            <option value="90">~90s</option>
+            <option value="manual">Manual / reveal</option>
+          </select>
+        </div>
+      </div>
+      <label>Seconds per reveal (override) — blank = auto</label>
+      <input type="number" id="perItem" step="0.05" min="0.2" max="3" placeholder="auto">
+      <label>Granularity</label>
+      <div class="seg" id="gran">
+        <button data-g="accolade" class="on">Per accolade</button>
+        <button data-g="season">Per teammate-season</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Style</h2>
+      <label>Title line</label>
+      <input type="text" id="title" value="Who had more help?">
+      <label>Accent color</label>
+      <input type="color" id="accent" value="#3b82f6">
+      <span class="meta" style="margin-left:8px">Winner shown in this color.</span>
+    </div>
+
+    <div class="card">
+      <h2>Render</h2>
+      <button class="btn" id="preview-btn">▶ Preview animation</button>
+      <div class="btns">
+        <button class="btn" id="mp4-btn">⬇ Render MP4</button>
+        <button class="btn ghost" id="webm-btn">⬇ Render WebM</button>
+      </div>
+      <div class="progress" style="margin-top:12px"><i id="bar"></i></div>
+      <div id="status" class="meta" style="margin-top:8px">Idle.</div>
+      <div class="btns" id="downloads" style="display:none">
+        <a id="dl-mp4" class="btn" download style="display:none">Download MP4</a>
+        <a id="dl-webm" class="btn ghost" download style="display:none">Download WebM</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div class="stage">
+    <canvas id="preview" width="1080" height="1080"></canvas>
+    <div id="timeline" class="meta"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Teammates Score — Head-to-Head video generator (standalone)
+   ============================================================ */
+const DATA_URL = "data/teammates.json";
+const HEADSHOT_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/";
+
+const COL = { bg:"#0d0f14", text:"#f5f5f7", sec:"#8a93a6", gold:"#caa23a" };
+const AWARD_LABEL = {
+  "Most Valuable Player":"MVP",
+  "All-NBA First Team":"All-NBA 1st Team","All-NBA Second Team":"All-NBA 2nd Team","All-NBA Third Team":"All-NBA 3rd Team",
+  "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
+  "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
+};
+const INTRO_SEC = 3, OUTRO_SEC = 4;
+const PALETTE = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f97316"];
+
+let DB=null, BY_NAME={}, SCORES={}, TEAMS={};
+let granularity = "accolade";
+let busy = false;
+
+const $ = id => document.getElementById(id);
+const awLabel = a => AWARD_LABEL[a] || a;
+const seasonLabel = y => `${y-1}–${String(y).slice(-2)}`;
+const easeOutCubic = t => 1 - Math.pow(1-t, 3);
+const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+const hsOf = name => (BY_NAME[name] && BY_NAME[name].hs) ? BY_NAME[name].hs : null;
+const colorFor = name => { let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))>>>0; return PALETTE[h%PALETTE.length]; };
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{
+    const res = await fetch(DATA_URL, {cache:"no-cache"});
+    DB = await res.json();
+    SCORES = DB.scores; TEAMS = DB.teams || {};
+    DB.players.forEach(p => BY_NAME[p.name] = p);
+    const dl = $("playerlist");
+    const names = DB.players.map(p=>p.name).sort();
+    dl.innerHTML = names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join("");
+    // sensible defaults
+    $("pa").value = BY_NAME["Stephen Curry"] ? "Stephen Curry" : names[0];
+    $("pb").value = BY_NAME["LeBron James"] ? "LeBron James" : names[1];
+    refreshMeta();
+  }catch(e){
+    $("status").textContent = "Could not load data/teammates.json — serve this file from the deployed site.";
+    console.error(e);
+  }
+}
+
+/* ---------- build the merged reveal list ---------- */
+function buildItems(pA, pB){
+  const items = [];
+  const push = (p, side) => {
+    for(const s of p.detail){
+      if(granularity === "accolade"){
+        for(const mate of s.mates) for(const a of mate.a)
+          items.push({ year:s.y, side, teammate:mate.n, awards:[a], points:(SCORES[a]||0), teammateHs:hsOf(mate.n) });
+      } else {
+        for(const mate of s.mates){
+          let pts=0; for(const a of mate.a) pts += (SCORES[a]||0);
+          items.push({ year:s.y, side, teammate:mate.n, awards:mate.a.slice(), points:pts, teammateHs:hsOf(mate.n) });
+        }
+      }
+    }
+  };
+  push(pA,"A"); push(pB,"B");
+  items.sort((x,y)=> x.year - y.year || y.points - x.points);
+  // precompute running scoreboard state per item
+  let aTot=0, bTot=0;
+  for(const it of items){
+    it.baseA = aTot; it.baseB = bTot;
+    if(it.side==="A") aTot += it.points; else bTot += it.points;
+    it.afterA = aTot; it.afterB = bTot;
+  }
+  return { items, finalA:aTot, finalB:bTot };
+}
+
+/* ---------- pacing ---------- */
+function pacing(itemCount){
+  const durSel = $("dur").value;
+  const manual = parseFloat($("perItem").value);
+  let perItem;
+  if(!isNaN(manual) && manual>0){
+    perItem = manual;
+  } else if(durSel === "manual"){
+    perItem = 0.7;
+  } else {
+    const target = durSel==="auto" ? 60 : parseFloat(durSel);
+    perItem = clamp(target / Math.max(itemCount,1), 0.35, 1.2);
+  }
+  const total = INTRO_SEC + itemCount*perItem + OUTRO_SEC;
+  return { perItem, total };
+}
+
+/* ---------- gather current options ---------- */
+function getOpts(){
+  const [w,h] = $("res").value.split("x").map(Number);
+  return {
+    w, h, fps: parseInt($("fps").value, 10),
+    accent: $("accent").value || "#3b82f6",
+    title: $("title").value || ""
+  };
+}
+
+function refreshMeta(){
+  const pA = BY_NAME[$("pa").value], pB = BY_NAME[$("pb").value];
+  if(!pA || !pB){ $("matchmeta").innerHTML = "Pick two players."; $("timeline").textContent=""; return; }
+  const {items} = buildItems(pA,pB);
+  const {perItem,total} = pacing(items.length);
+  $("matchmeta").innerHTML =
+    `<b>${pA.name}</b> — score ${pA.score} · ${pA.perSeason}/season · ${pA.rings}🏆<br>`+
+    `<b>${pB.name}</b> — score ${pB.score} · ${pB.perSeason}/season · ${pB.rings}🏆`;
+  $("timeline").innerHTML =
+    `<span class="pill">${items.length} accolades</span>`+
+    `<span class="pill">${perItem.toFixed(2)}s / reveal</span>`+
+    `<span class="pill">≈ ${total.toFixed(1)}s total</span>`+
+    (total>60 ? `<span class="pill">dense — runs long for readability</span>`:"");
+  return {pA,pB,items};
+}
+
+/* ============================================================
+   IMAGE PRELOAD (canvas-safe via crossOrigin anonymous)
+   ============================================================ */
+const imgCache = {};
+function loadHead(hs){
+  if(!hs) return Promise.resolve(null);
+  if(imgCache[hs]) return imgCache[hs];
+  imgCache[hs] = new Promise(resolve=>{
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = ()=>resolve(img);
+    img.onerror = ()=>resolve(null);
+    img.src = HEADSHOT_BASE + hs;
+  });
+  return imgCache[hs];
+}
+async function preload(pA, pB, items){
+  const set = new Set();
+  if(pA.hs) set.add(pA.hs);
+  if(pB.hs) set.add(pB.hs);
+  for(const it of items) if(it.teammateHs) set.add(it.teammateHs);
+  const map = {};
+  await Promise.all([...set].map(async hs => { map[hs] = await loadHead(hs); }));
+  return map;
+}
+
+/* ============================================================
+   DRAWING
+   ============================================================ */
+function rr(ctx,x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function nameFont(s){ return `600 ${s}px 'DM Sans',sans-serif`; }
+function numFont(s){ return `700 ${s}px 'JetBrains Mono',monospace`; }
+
+function drawHead(ctx, img, cx, cy, r, ringColor, name){
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.closePath();
+  if(img){
+    ctx.clip();
+    const iw=img.naturalWidth, ih=img.naturalHeight, side=Math.min(iw,ih);
+    const sx=(iw-side)/2, sy=(ih-side)/2;
+    ctx.drawImage(img, sx, sy, side, side, cx-r, cy-r, r*2, r*2);
+  } else {
+    ctx.fillStyle = "#1b2130"; ctx.fill();
+    ctx.fillStyle = colorFor(name||"?");
+    ctx.globalAlpha = .35; ctx.fill(); ctx.globalAlpha = 1;
+    const parts = (name||"?").split(/\s+/);
+    const ini = ((parts[0]||" ")[0] + (parts.length>1 ? parts[parts.length-1][0] : "")).toUpperCase();
+    ctx.fillStyle = COL.text; ctx.font = nameFont(r*0.9);
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(ini, cx, cy+r*0.04);
+  }
+  ctx.restore();
+  // ring
+  ctx.lineWidth = Math.max(3, r*0.07);
+  ctx.strokeStyle = ringColor;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+}
+
+function fitText(ctx, text, max){
+  // shrink the px size in ctx.font until the text fits within `max`
+  const m = ctx.font.match(/^(.*?)(\d+(?:\.\d+)?)px(.*)$/);
+  if(!m) return;
+  const pre = m[1], post = m[3];
+  let size = parseFloat(m[2]);
+  while(size > 8 && ctx.measureText(text).width > max){
+    size -= 1; ctx.font = `${pre}${size}px${post}`;
+  }
+  return size;
+}
+
+/* shared scoreboard at the top of every frame */
+function drawScoreboard(ctx, L, valA, valB, accent){
+  const {W,S,rHead,sbTopY} = L;
+  const leftX = W*0.225, rightX = W*0.775, cy = sbTopY + rHead;
+  const aLead = valA > valB + 1e-6, bLead = valB > valA + 1e-6;
+
+  // panels
+  drawPlayerPanel(ctx, L, leftX, cy, L.imgA, L.pA.name, valA, aLead?accent:COL.sec, L.activeSide==="A"?accent:"#2a3142");
+  drawPlayerPanel(ctx, L, rightX, cy, L.imgB, L.pB.name, valB, bLead?accent:COL.sec, L.activeSide==="B"?accent:"#2a3142");
+
+  // center gap column
+  const gap = Math.abs(valA - valB);
+  const leader = aLead ? L.pA.name : bLead ? L.pB.name : "Even";
+  ctx.textAlign="center";
+  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*20);
+  ctx.textBaseline="alphabetic";
+  ctx.fillText("GAP", W/2, cy - rHead*0.45);
+  ctx.fillStyle = accent; ctx.font = numFont(S*52);
+  ctx.fillText(gap.toFixed(1), W/2, cy + rHead*0.18);
+  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*18);
+  let lt = leader==="Even" ? "all square" : `${leader} leads`;
+  ctx.save(); ctx.font = nameFont(S*18); fitText(ctx, lt, W*0.24);
+  ctx.fillText(lt, W/2, cy + rHead*0.62); ctx.restore();
+}
+function drawPlayerPanel(ctx, L, cx, cy, img, name, val, numColor, ring){
+  const {S,rHead} = L;
+  drawHead(ctx, img, cx, cy, rHead, ring, name);
+  ctx.textAlign="center"; ctx.textBaseline="alphabetic";
+  ctx.fillStyle = COL.text; ctx.font = nameFont(S*26);
+  ctx.save(); fitText(ctx, name, rHead*3.0);
+  ctx.fillText(name, cx, cy + rHead + S*34); ctx.restore();
+  ctx.fillStyle = numColor; ctx.font = numFont(S*54);
+  ctx.fillText(val.toFixed(1), cx, cy + rHead + S*92);
+}
+
+function drawChrome(ctx, L, accent){
+  const {W,H,S} = L;
+  // title line top-center
+  if(L.title){
+    ctx.textAlign="center"; ctx.textBaseline="top";
+    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*20);
+    ctx.fillText(L.title.toUpperCase(), W/2, S*18);
+  }
+  // wordmark bottom-right
+  ctx.textAlign="right"; ctx.textBaseline="bottom";
+  ctx.fillStyle = accent; ctx.font = `800 ${S*18}px 'DM Sans',sans-serif`;
+  ctx.fillText("HOOPSMATIC", W - S*22, H - S*18);
+}
+
+function drawAccoladeCard(ctx, L, it, prog, accent){
+  const {W,S} = L;
+  // accolade is tinted by the side it belongs to (A = accent, B = warm)
+  const tint = it.side==="A" ? accent : "#ef6a5a";
+  // animation: rise + fade
+  const e = easeOutCubic(clamp(prog/0.22,0,1));
+  const alpha = e;
+  const rise = (1-e) * S*36;
+
+  const cw = Math.min(W*0.82, 760*S);
+  const ch = L.cardH;
+  const cx = (W - cw)/2;
+  const cy = L.cardTopY + rise;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // card body
+  rr(ctx, cx, cy, cw, ch, S*22);
+  ctx.fillStyle = "#151922"; ctx.fill();
+  ctx.lineWidth = Math.max(2, S*3); ctx.strokeStyle = tint; ctx.stroke();
+  // left accent stripe
+  ctx.save(); rr(ctx, cx, cy, cw, ch, S*22); ctx.clip();
+  ctx.fillStyle = tint; ctx.fillRect(cx, cy, S*8, ch); ctx.restore();
+
+  const pad = S*30;
+  // season + which side
+  ctx.textAlign="left"; ctx.textBaseline="top";
+  ctx.fillStyle = COL.sec; ctx.font = `700 ${S*20}px 'DM Sans',sans-serif`;
+  ctx.fillText(seasonLabel(it.year).toUpperCase() + "  ·  " + (it.side==="A"?L.pA.name:L.pB.name), cx+pad+S*8, cy+pad);
+
+  // teammate headshot + name
+  const r = ch*0.26;
+  const hx = cx + pad + r + S*8, hy = cy + ch*0.52;
+  drawHead(ctx, L.cardImg, hx, hy, r, tint, it.teammate);
+
+  const tx = hx + r + S*22;
+  ctx.fillStyle = COL.text; ctx.font = nameFont(S*34);
+  ctx.textBaseline="alphabetic";
+  ctx.save(); fitText(ctx, it.teammate, cw - (tx-cx) - pad - S*120);
+  ctx.fillText(it.teammate, tx, hy - S*6); ctx.restore();
+
+  // award label(s)
+  const labels = it.awards.map(awLabel).join("  ·  ");
+  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*22);
+  ctx.save(); fitText(ctx, labels, cw - (tx-cx) - pad - S*120);
+  ctx.fillText(labels, tx, hy + S*30); ctx.restore();
+
+  // +points (right)
+  const ptsTxt = "+" + (Math.round(it.points*1000)/1000);
+  ctx.textAlign="right";
+  ctx.fillStyle = tint; ctx.font = numFont(S*56);
+  ctx.fillText(ptsTxt, cx+cw-pad, hy + S*16);
+  ctx.textAlign="left";
+  ctx.restore();
+}
+
+/* intro */
+function drawIntro(ctx, L, prog, accent){
+  const {W,H,S} = L;
+  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,H);
+  drawChrome(ctx, L, accent);
+  const e = easeOutCubic(clamp(prog/0.4,0,1));
+  ctx.globalAlpha = e;
+  const r = Math.min(W,H)*0.16;
+  const leftX = W*0.27, rightX = W*0.73, cy = H*0.40;
+  drawHead(ctx, L.imgA, leftX, cy, r, accent, L.pA.name);
+  drawHead(ctx, L.imgB, rightX, cy, r, "#ef6a5a", L.pB.name);
+  // VS
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle = accent; ctx.font = `800 ${S*72}px 'DM Sans',sans-serif`;
+  ctx.fillText("VS", W/2, cy);
+  // names
+  ctx.fillStyle = COL.text; ctx.font = nameFont(S*30); ctx.textBaseline="alphabetic";
+  ctx.save(); fitText(ctx, L.pA.name, r*2.4); ctx.fillText(L.pA.name, leftX, cy + r + S*44); ctx.restore();
+  ctx.save(); ctx.font = nameFont(S*30); fitText(ctx, L.pB.name, r*2.4); ctx.fillText(L.pB.name, rightX, cy + r + S*44); ctx.restore();
+  // rings
+  drawRings(ctx, L, leftX, cy + r + S*70, L.pA.rings);
+  drawRings(ctx, L, rightX, cy + r + S*70, L.pB.rings);
+  // scoreboard 0.0 - 0.0
+  ctx.fillStyle = COL.sec; ctx.font = numFont(S*40);
+  ctx.textAlign="center"; ctx.fillText("0.0", leftX, H*0.78);
+  ctx.fillText("0.0", rightX, H*0.78);
+  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*22);
+  ctx.fillText("TEAMMATES SCORE", W/2, H*0.74);
+  ctx.fillStyle = accent; ctx.font = numFont(S*40);
+  ctx.fillText("0.0", W/2, H*0.785);
+  ctx.globalAlpha = 1;
+}
+function drawRings(ctx, L, cx, y, rings){
+  const {S} = L;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle = COL.gold; ctx.font = nameFont(S*18);
+  const n = Math.min(rings, 8);
+  const dot = S*9, gap = S*6;
+  const totalW = n*dot + (n-1)*gap;
+  let x = cx - totalW/2 + dot/2;
+  for(let i=0;i<n;i++){ ctx.beginPath(); ctx.arc(x, y, dot/2, 0, Math.PI*2); ctx.fill(); x += dot+gap; }
+  ctx.fillText(rings>0 ? `${rings} ${rings>1?"rings":"ring"}` : "no rings", cx, y + S*20);
+}
+
+/* outro */
+function drawOutro(ctx, L, prog, accent){
+  const {W,H,S,finalA,finalB} = L;
+  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,H);
+  drawChrome(ctx, L, accent);
+  // reuse scoreboard
+  drawScoreboard(ctx, {...L, activeSide:null}, finalA, finalB, accent);
+
+  const e = easeOutCubic(clamp(prog/0.4,0,1));
+  ctx.globalAlpha = e;
+  const aWin = finalA >= finalB;
+  const winner = aWin ? L.pA : L.pB, other = aWin ? L.pB : L.pA;
+  const cy = L.cardTopY + L.cardH*0.5;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle = COL.text; ctx.font = `800 ${S*52}px 'DM Sans',sans-serif`;
+  ctx.save(); fitText(ctx, `${winner.name} had more help`, W*0.9);
+  ctx.fillText(`${winner.name} had more help`, W/2, cy - S*40); ctx.restore();
+
+  const gap = Math.abs(finalA-finalB);
+  ctx.fillStyle = accent; ctx.font = numFont(S*30);
+  ctx.fillText(`by ${gap.toFixed(1)} Teammates Score`, W/2, cy + S*20);
+
+  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*24);
+  ctx.fillText(`${winner.perSeason}/season  vs  ${other.perSeason}/season`, W/2, cy + S*66);
+  ctx.globalAlpha = 1;
+}
+
+/* layout object built once per render */
+function buildLayout(opts, pA, pB, imgMap, items, finalA, finalB, perItem, fps){
+  const W=opts.w, H=opts.h, S=Math.min(W,H)/1080;
+  const rHead = Math.min(W,H)*0.105;
+  const sbTopY = H*0.055;
+  const sbBottomY = sbTopY + rHead*2 + S*100;
+  const cardTopY = sbBottomY + S*30;
+  const cardAreaBottom = H - S*60;
+  const cardH = Math.min((cardAreaBottom - cardTopY), S*230);
+  const cardTopCentered = cardTopY + ((cardAreaBottom - cardTopY) - cardH)/2;
+  return {
+    W,H,S,rHead,sbTopY,
+    cardTopY:cardTopCentered, cardH,
+    pA,pB, imgA:imgMap[pA.hs]||null, imgB:imgMap[pB.hs]||null, imgMap,
+    title:opts.title, finalA, finalB,
+    activeSide:null, cardImg:null,
+    bLeadColor:"#ef6a5a"
+  };
+}
+
+/* the single deterministic frame function */
+function makeDrawFrame(L, opts, items, intro, perItemF, outro, total){
+  const accent = opts.accent, fps = opts.fps;
+  const ctx = $("preview").getContext("2d");
+  return function drawFrame(g){
+    ctx.fillStyle = COL.bg; ctx.fillRect(0,0,L.W,L.H);
+    if(g < intro){
+      drawIntro(ctx, L, g/intro, accent);
+      return;
+    }
+    if(g >= intro + items.length*perItemF){
+      const o = g - (intro + items.length*perItemF);
+      drawOutro(ctx, L, clamp(o/outro,0,1), accent);
+      return;
+    }
+    const local = g - intro;
+    const i = Math.min(items.length-1, Math.floor(local / perItemF));
+    const f = local - i*perItemF;
+    const prog = f / perItemF;
+    const it = items[i];
+
+    // scoreboard values with active side ticking
+    const tickF = Math.min(perItemF, Math.round(0.45*fps));
+    const te = easeOutCubic(clamp(f/tickF, 0, 1));
+    let valA = it.baseA, valB = it.baseB;
+    if(it.side==="A") valA = it.baseA + (it.afterA-it.baseA)*te;
+    else valB = it.baseB + (it.afterB-it.baseB)*te;
+
+    L.activeSide = it.side;
+    L.cardImg = it.teammateHs ? (L.imgMap[it.teammateHs]||null) : null;
+    drawChrome(ctx, L, accent);
+    drawScoreboard(ctx, L, valA, valB, accent);
+    drawAccoladeCard(ctx, L, it, prog, accent);
+  };
+}
+
+/* ============================================================
+   PREPARE (shared by preview / mp4 / webm)
+   ============================================================ */
+async function prepare(){
+  const pA = BY_NAME[$("pa").value], pB = BY_NAME[$("pb").value];
+  if(!pA || !pB) throw new Error("Pick two valid players.");
+  if(pA.name === pB.name) throw new Error("Pick two different players.");
+  const opts = getOpts();
+  const {items, finalA, finalB} = buildItems(pA, pB);
+  if(!items.length) throw new Error("No shared accolades to show for this matchup.");
+  const {perItem, total:totalSec} = pacing(items.length);
+
+  $("status").textContent = "Loading headshots…";
+  const imgMap = await preload(pA, pB, items);
+  await document.fonts.ready;
+
+  const cv = $("preview");
+  cv.width = opts.w; cv.height = opts.h;
+
+  const fps = opts.fps;
+  const intro = Math.round(INTRO_SEC*fps);
+  const perItemF = Math.max(1, Math.round(perItem*fps));
+  const outro = Math.round(OUTRO_SEC*fps);
+  const total = intro + items.length*perItemF + outro;
+
+  const L = buildLayout(opts, pA, pB, imgMap, items, finalA, finalB, perItem, fps);
+  const drawFrame = makeDrawFrame(L, opts, items, intro, perItemF, outro, total);
+  return { opts, fps, items, intro, perItemF, outro, total, totalSec, drawFrame, cv };
+}
+
+/* ============================================================
+   PREVIEW (setTimeout loop @ frameDelay, deterministic)
+   ============================================================ */
+async function runPreview(){
+  if(busy) return; busy=true; setBusy(true);
+  try{
+    const P = await prepare();
+    $("status").textContent = `Preview · ${P.totalSec.toFixed(1)}s · ${P.total} frames`;
+    const frameDelay = 1000/P.fps;
+    let g=0;
+    await new Promise(resolve=>{
+      function step(){
+        P.drawFrame(g);
+        setBar(g/P.total);
+        g++;
+        if(g >= P.total){ setBar(1); resolve(); return; }
+        setTimeout(step, frameDelay);
+      }
+      step();
+    });
+    $("status").textContent = "Preview done.";
+  }catch(e){ $("status").textContent = "Error: " + e.message; console.error(e); }
+  busy=false; setBusy(false);
+}
+
+/* ============================================================
+   MP4 via WebCodecs + mp4-muxer
+   ============================================================ */
+async function renderMP4(){
+  if(busy) return; busy=true; setBusy(true);
+  try{
+    if(!("VideoEncoder" in window)) throw new Error("WebCodecs not supported in this browser — use WebM.");
+    const P = await prepare();
+    const {opts, fps, total, drawFrame, cv} = P;
+
+    const muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      fastStart: "in-memory",
+      video: { codec:"avc", width:opts.w, height:opts.h }
+    });
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: e => { console.error(e); $("status").textContent = "Encoder error: " + e.message; }
+    });
+    encoder.configure({
+      codec:"avc1.4d0034", width:opts.w, height:opts.h,
+      bitrate: 8_000_000, framerate: fps
+    });
+
+    $("status").textContent = "Encoding MP4…";
+    const usPerFrame = 1e6 / fps;
+    for(let g=0; g<total; g++){
+      drawFrame(g);
+      const vf = new VideoFrame(cv, { timestamp: Math.round(g*usPerFrame), duration: Math.round(usPerFrame) });
+      encoder.encode(vf, { keyFrame: g % (fps*2) === 0 });
+      vf.close();
+      setBar(g/total);
+      $("status").textContent = `Encoding MP4… ${Math.round(100*g/total)}%`;
+      if(encoder.encodeQueueSize > 8) await new Promise(r=>setTimeout(r, 0));
+      else if(g % 4 === 0) await new Promise(r=>setTimeout(r, 0));
+    }
+    await encoder.flush();
+    muxer.finalize();
+    const blob = new Blob([muxer.target.buffer], { type:"video/mp4" });
+    offerDownload("dl-mp4", blob, fileName(P,"mp4"));
+    setBar(1);
+    $("status").textContent = "MP4 ready.";
+  }catch(e){ $("status").textContent = "Error: " + e.message; console.error(e); }
+  busy=false; setBusy(false);
+}
+
+/* ============================================================
+   WebM via captureStream + MediaRecorder (real-time)
+   ============================================================ */
+async function renderWebM(){
+  if(busy) return; busy=true; setBusy(true);
+  try{
+    const P = await prepare();
+    const {fps, total, drawFrame, cv} = P;
+    const stream = cv.captureStream(fps);
+    let mime = "video/webm;codecs=vp9";
+    if(!MediaRecorder.isTypeSupported(mime)) mime = "video/webm;codecs=vp8";
+    if(!MediaRecorder.isTypeSupported(mime)) mime = "video/webm";
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    const chunks = [];
+    rec.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
+    const done = new Promise(res => rec.onstop = res);
+    rec.start();
+
+    $("status").textContent = "Recording WebM…";
+    const frameDelay = 1000/fps;
+    let g=0;
+    await new Promise(resolve=>{
+      function step(){
+        drawFrame(g);
+        setBar(g/total);
+        $("status").textContent = `Recording WebM… ${Math.round(100*g/total)}%`;
+        g++;
+        if(g >= total){ resolve(); return; }
+        setTimeout(step, frameDelay);
+      }
+      step();
+    });
+    rec.stop();
+    await done;
+    const blob = new Blob(chunks, { type:"video/webm" });
+    offerDownload("dl-webm", blob, fileName(P,"webm"));
+    setBar(1);
+    $("status").textContent = "WebM ready.";
+  }catch(e){ $("status").textContent = "Error: " + e.message; console.error(e); }
+  busy=false; setBusy(false);
+}
+
+/* ---------- helpers ---------- */
+function fileName(P, ext){
+  const a = $("pa").value.replace(/\s+/g,"-").toLowerCase();
+  const b = $("pb").value.replace(/\s+/g,"-").toLowerCase();
+  return `teammates-${a}-vs-${b}.${ext}`;
+}
+function offerDownload(id, blob, name){
+  const a = $(id);
+  if(a.href) URL.revokeObjectURL(a.href);
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.textContent = `Download ${name.split(".").pop().toUpperCase()}`;
+  a.style.display = "inline-flex";
+  $("downloads").style.display = "flex";
+}
+function setBar(p){ $("bar").style.width = (clamp(p,0,1)*100).toFixed(1) + "%"; }
+function setBusy(b){ ["preview-btn","mp4-btn","webm-btn"].forEach(id=>$(id).disabled=b); }
+
+/* ---------- wiring ---------- */
+$("preview-btn").onclick = runPreview;
+$("mp4-btn").onclick = renderMP4;
+$("webm-btn").onclick = renderWebM;
+["pa","pb","res","fps","dur","perItem","title","accent"].forEach(id=>{
+  $(id).addEventListener("change", ()=>{ refreshMeta(); document.documentElement.style.setProperty("--accent", $("accent").value); });
+  $(id).addEventListener("input", ()=>{ if(id==="accent") document.documentElement.style.setProperty("--accent", $("accent").value); });
+});
+$("gran").querySelectorAll("button").forEach(btn=>{
+  btn.onclick = ()=>{
+    $("gran").querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+    btn.classList.add("on"); granularity = btn.dataset.g; refreshMeta();
+  };
+});
+
+boot();
+</script>
+</body>
+</html>
