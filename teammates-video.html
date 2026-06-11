@@ -154,7 +154,7 @@ const AWARD_LABEL = {
   "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
   "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
 };
-const INTRO_SEC = 2.5, FINAL_SEC = 5;
+const INTRO_SEC = 2.2, FINAL_SEC = 5, LEAD_SEC = 0.5, SETTLE_SEC = 0.8, TRANS_SEC = 0.4;
 
 let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={};
 let granularity = "accolade";
@@ -256,10 +256,36 @@ function seasonRows(entry, side){
   }
   return out;
 }
-function countItems(pA,pB){
-  let c=0;
-  for(const p of [pA,pB]) for(const s of p.detail)
-    c += (granularity==="accolade" ? s.mates.reduce((a,m)=>a+m.a.length,0) : s.mates.length);
+/* career-aligned plan: one entry per kept career-season, each side a column
+   descriptor. Empty-vs-empty seasons are dropped (compresses scroll time);
+   a career end yields a single 'closing' card, after which that side is 'dim'. */
+function buildPlan(pA,pB){
+  const dA=byYear(pA), dB=byYear(pB);
+  const maxN=Math.max(pA.years.length, pB.years.length);
+  let shownA=false, shownB=false;
+  const plan=[];
+  for(let n=1;n<=maxN;n++){
+    const yA=n<=pA.years.length?pA.years[n-1]:null;
+    const yB=n<=pB.years.length?pB.years[n-1]:null;
+    const eA=yA!=null?dA[yA]:undefined, eB=yB!=null?dB[yB]:undefined;
+    const rowsA=seasonRows(eA,"A"), rowsB=seasonRows(eB,"B");
+    const aOver=yA==null, bOver=yB==null;
+    let colA = !aOver ? (rowsA.length?{type:"rows",rows:rowsA}:{type:"empty",rows:[]})
+                      : (!shownA?{type:"closing",rows:[]}:{type:"dim",rows:[]});
+    let colB = !bOver ? (rowsB.length?{type:"rows",rows:rowsB}:{type:"empty",rows:[]})
+                      : (!shownB?{type:"closing",rows:[]}:{type:"dim",rows:[]});
+    const meaningfulA = colA.type==="rows"||colA.type==="closing";
+    const meaningfulB = colB.type==="rows"||colB.type==="closing";
+    if(!meaningfulA && !meaningfulB) continue;            // skip — nothing to reveal here
+    if(colA.type==="closing") shownA=true;
+    if(colB.type==="closing") shownB=true;
+    plan.push({ n, yA, yB, teamA:eA?eA.t:null, teamB:eB?eB.t:null, aOver, bOver, colA, colB });
+  }
+  return plan;
+}
+/* number of reveal slots (rows crossing the trigger) = pacing unit */
+function countAnchors(pA,pB){
+  let c=0; for(const pb of buildPlan(pA,pB)) c+=Math.max(pb.colA.rows.length, pb.colB.rows.length);
   return c;
 }
 /* every teammate that will appear (for preload) */
@@ -285,17 +311,18 @@ function marqueeAccolades(aw){
   return items.slice(0,2).map(a => (aw[a]>1 ? `${aw[a]}× ` : "") + awLabel(a)).join(" · ");
 }
 
-/* ---------- pacing ---------- */
-function pacing(itemCount){
+/* ---------- pacing (anchor-driven: equal time per reveal slot) ---------- */
+function pacing(slotCount){
   const durSel = $("dur").value;
   const manual = parseFloat($("perItem").value);
   let perItem;
   if(!isNaN(manual) && manual>0)      perItem = manual;
   else if(durSel === "manual")        perItem = 0.7;
   else { const target = durSel==="auto" ? 60 : parseFloat(durSel);
-         perItem = clamp(target / Math.max(itemCount,1), 0.35, 1.2); }
-  const scrollSec = Math.max(itemCount,1) * perItem;
-  const total = INTRO_SEC + scrollSec + FINAL_SEC;
+         perItem = clamp(target / Math.max(slotCount,1), 0.35, 1.2); }
+  const M = Math.max(slotCount,1);
+  const scrollSec = LEAD_SEC + (M-1)*perItem + SETTLE_SEC;      // no dead head/tail
+  const total = INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC;
   return { perItem, scrollSec, total };
 }
 function getOpts(){
@@ -306,17 +333,17 @@ function getOpts(){
 function refreshMeta(){
   const pA = BY_NAME[$("pa").value], pB = BY_NAME[$("pb").value];
   if(!pA || !pB){ $("matchmeta").innerHTML = "Pick two players."; $("timeline").textContent=""; return; }
-  const n = countItems(pA,pB);
-  const { perItem, scrollSec, total } = pacing(n);
+  const slots = countAnchors(pA,pB);
+  const { perItem, scrollSec, total } = pacing(slots);
   $("matchmeta").innerHTML =
     `<b>${pA.name}</b> — ${pA.score} · ${pA.perSeason}/season · ${pA.seasons} seasons · ${pA.rings}🏆<br>`+
     `<b>${pB.name}</b> — ${pB.score} · ${pB.perSeason}/season · ${pB.seasons} seasons · ${pB.rings}🏆`;
   $("timeline").innerHTML =
-    `<span class="pill">${n} rows</span>`+
-    `<span class="pill">${perItem.toFixed(2)}s / reveal</span>`+
+    `<span class="pill">${slots} reveals</span>`+
+    `<span class="pill">${perItem.toFixed(2)}s each</span>`+
     `<span class="pill">scroll ${scrollSec.toFixed(1)}s</span>`+
-    `<span class="pill">≈ ${total.toFixed(1)}s total</span>`+
-    (total>60 ? `<span class="pill">dense — runs long for readability</span>`:"");
+    `<span class="pill"><b>≈ ${total.toFixed(1)}s total</b></span>`+
+    `<span class="pill">intro ${INTRO_SEC}s · trans ${TRANS_SEC}s · finale ${FINAL_SEC}s</span>`;
 }
 
 /* ============================================================
@@ -324,51 +351,44 @@ function refreshMeta(){
    ============================================================ */
 function buildGeom(opts){
   const W=opts.w, H=opts.h, S=Math.min(W,H)/1080;
-  const sbH = Math.min(Math.max(H*0.18, S*200), H*0.30);
+  const sbH = Math.min(Math.max(H*0.16, S*180), H*0.22);        // hero scoreboard, <=22% H
   const viewportTop = sbH, viewportH = H - sbH;
-  const fireLineY = sbH + viewportH*0.45;
-  const revealBand = viewportH*0.32;
-  const gutter = S*16;
-  const leftColX0 = W*0.045, leftColX1 = W*0.5 - gutter;
-  const rightColX0 = W*0.5 + gutter, rightColX1 = W*0.955;
-  const rowH = S*78, headerH = S*94, blockGap = S*22;
-  const chipR = rowH*0.34;
-  return { W,H,S, sbH, viewportTop, viewportH, fireLineY, revealBand,
+  const fireLineY = viewportTop + viewportH*0.34;               // trigger line (upper-third)
+  const leftColX0 = W*0.04,  leftColX1 = W*0.49;
+  const rightColX0 = W*0.51, rightColX1 = W*0.96;
+  const rowH = S*80, headerH = S*66, blockGap = S*16, chipR = rowH*0.32;
+  return { W,H,S, sbH, viewportTop, viewportH, fireLineY,
            leftColX0,leftColX1,rightColX0,rightColX1, rowH, headerH, blockGap, chipR };
 }
-
-/* build the scrolling document of career-aligned season blocks */
-function buildDocument(pA,pB,geom){
+/* lay the plan out in document space; collect anchors (reveal slots) */
+function buildDocument(plan, geom){
   const { rowH, headerH, blockGap, viewportTop, fireLineY } = geom;
-  const dA = byYear(pA), dB = byYear(pB);
-  const maxN = Math.max(pA.years.length, pB.years.length);
-  const blocks = [], rows = [];
-  let docY = 0;
-  for(let n=1; n<=maxN; n++){
-    const yA = n<=pA.years.length ? pA.years[n-1] : null;
-    const yB = n<=pB.years.length ? pB.years[n-1] : null;
-    const eA = yA!=null ? dA[yA] : undefined;
-    const eB = yB!=null ? dB[yB] : undefined;
-    const rowsA = seasonRows(eA,"A"), rowsB = seasonRows(eB,"B");
-    const aOver = yA==null, bOver = yB==null;
-    // skip a career-season index entirely when neither side has decorated teammates to show
-    if(rowsA.length===0 && rowsB.length===0) continue;
-    const slotsA = aOver ? 1 : (rowsA.length || 1);
-    const slotsB = bOver ? 1 : (rowsB.length || 1);
-    const bodyH = Math.max(slotsA, slotsB) * rowH;
+  const fireOffset = fireLineY - viewportTop;
+  const blocks=[], rows=[], anchors=[]; let docY=0;
+  for(const pb of plan){
+    const rowsA = pb.colA.rows, rowsB = pb.colB.rows;
+    const slots = t => t==="rows" ? 0 : t==="dim" ? 0 : 1;       // closing/empty occupy 1 slim slot
+    const slotsA = pb.colA.type==="rows" ? rowsA.length : slots(pb.colA.type);
+    const slotsB = pb.colB.type==="rows" ? rowsB.length : slots(pb.colB.type);
+    const bodyH = Math.max(slotsA, slotsB, 1) * rowH;
     const top = docY, bodyTop = top + headerH;
-    rowsA.forEach((r,i)=>{ r.centerDoc = bodyTop + i*rowH + rowH/2; r.fire = r.centerDoc-(fireLineY-viewportTop); rows.push(r); });
-    rowsB.forEach((r,i)=>{ r.centerDoc = bodyTop + i*rowH + rowH/2; r.fire = r.centerDoc-(fireLineY-viewportTop); rows.push(r); });
-    blocks.push({ n, top, headerH, bodyH, yA, yB,
-                  teamA: eA?eA.t:null, teamB: eB?eB.t:null, aOver, bOver, rowsA, rowsB,
-                  height: headerH + bodyH + blockGap });
+    const slotCount = Math.max(rowsA.length, rowsB.length);
+    for(let i=0;i<slotCount;i++){
+      const docCenter = bodyTop + i*rowH + rowH/2;
+      const an = { docY:docCenter, fire:docCenter-fireOffset, rows:[], time:0 };
+      const rA=rowsA[i], rB=rowsB[i];
+      if(rA){ rA.centerDoc=docCenter; rA.fire=an.fire; an.rows.push(rA); rows.push(rA); }
+      if(rB){ rB.centerDoc=docCenter; rB.fire=an.fire; an.rows.push(rB); rows.push(rB); }
+      anchors.push(an);
+    }
+    blocks.push({ ...pb, top, headerH, bodyH, height: headerH + bodyH + blockGap });
     docY += headerH + bodyH + blockGap;
   }
-  return { blocks, rows, docHeight: docY, maxN };
+  return { blocks, rows, anchors, docHeight:docY };
 }
 
 /* ============================================================
-   DRAWING PRIMITIVES
+   PRIMITIVES
    ============================================================ */
 function rr(ctx,x,y,w,h,r){
   r = Math.min(r, w/2, h/2);
@@ -405,184 +425,202 @@ function drawHead(ctx, img, cx, cy, r, ringColor, name){
   if(ringColor){ ctx.lineWidth=Math.max(2,r*0.07); ctx.strokeStyle=ringColor;
     ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke(); }
 }
+function ringArc(ctx,cx,cy,r,color,frac){
+  if(frac<=0) return;
+  ctx.save(); ctx.lineWidth=Math.max(2,r*0.07); ctx.strokeStyle=color; ctx.lineCap="round";
+  ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+frac*Math.PI*2); ctx.stroke(); ctx.restore();
+}
+function drawBackground(ctx, R){
+  const { W,H } = R.geom;
+  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,H);
+  const g = ctx.createRadialGradient(W/2, H*0.40, 0, W/2, H*0.40, Math.max(W,H)*0.78);
+  g.addColorStop(0, "#13161e"); g.addColorStop(1, "#0a0c11");
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
 
 /* ============================================================
-   FIXED TOP SCOREBOARD
+   FIXED HERO SCOREBOARD
    ============================================================ */
-function drawTopScoreboard(ctx, R, valA, valB){
-  const { W, S, sbH } = R.geom, accent = R.accent;
-  // band background
-  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,sbH);
-  ctx.strokeStyle = "#1c2230"; ctx.lineWidth = Math.max(1,S*2);
-  ctx.beginPath(); ctx.moveTo(0,sbH-1); ctx.lineTo(W,sbH-1); ctx.stroke();
-
-  const r = sbH*0.26, cy = sbH*0.40;
-  const leftX = W*0.20, rightX = W*0.80;
-  const aLead = valA > valB + 1e-9, bLead = valB > valA + 1e-9;
-
-  drawScorePanel(ctx, R, leftX, cy, r, R.imgA, R.pA.name, valA, aLead?accent:COL.sec);
-  drawScorePanel(ctx, R, rightX, cy, r, R.imgB, R.pB.name, valB, bLead?accent:COL.sec);
-
-  // centre gap column
-  ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*18); ctx.fillText("GAP", W/2, cy - r*0.35);
-  ctx.fillStyle = accent;  ctx.font = numFont(S*46);  ctx.fillText(fmt1(Math.abs(valA-valB)), W/2, cy + r*0.30);
-  const leader = aLead ? R.pA.name : bLead ? R.pB.name : "even";
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*16);
-  ctx.save(); fitText(ctx, leader==="even"?"all square":`${leader} leads`, W*0.22);
-  ctx.fillText(leader==="even"?"all square":`${leader} leads`, W/2, cy + r*0.78); ctx.restore();
+function sidePulse(R, side){          // scoreboard number pop when a big reveal bumps it
+  if(R.ts==null) return 0; let best=0;
+  for(const t of R.bigCross[side]){ const d=R.ts-t; if(d>=-0.05) best=Math.max(best, clamp(1-d/0.35,0,1)); }
+  return best;
 }
-function drawScorePanel(ctx, R, cx, cy, r, img, name, val, numColor){
+function gapPop(R){                    // GAP pill pops on every reveal
+  if(R.ts==null) return 0; let best=0;
+  for(const t of R.anchorTimes){ const d=R.ts-t; if(d>=0) best=Math.max(best, clamp(1-d/0.3,0,1)); }
+  return best;
+}
+function drawTopScoreboard(ctx, R, valA, valB){
+  const G=R.geom, S=G.S, W=G.W, sbH=G.sbH, accent=R.accent;
+  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,sbH);                  // opaque band
+  const grad = ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,"rgba(59,130,246,0)"); grad.addColorStop(.5,"rgba(120,140,180,.55)"); grad.addColorStop(1,"rgba(239,106,90,0)");
+  ctx.fillStyle = grad; ctx.fillRect(0, sbH-Math.max(1,S*2), W, Math.max(1,S*2));
+  const r = sbH*0.23, headCY = sbH*0.30, leftX = W*0.19, rightX = W*0.81;
+  const aLead = valA>valB+1e-9, bLead = valB>valA+1e-9;
+  drawSbSide(ctx, R, leftX,  headCY, r, R.imgA, R.pA.name, valA, aLead?accent:COL.sec, "A", sidePulse(R,"A"));
+  drawSbSide(ctx, R, rightX, headCY, r, R.imgB, R.pB.name, valB, bLead?accent:COL.sec, "B", sidePulse(R,"B"));
+  drawGapPill(ctx, R, W/2, sbH*0.50, Math.abs(valA-valB));
+}
+function drawSbSide(ctx, R, cx, cy, r, img, name, val, numColor, side, pulse){
   const S = R.geom.S;
-  drawHead(ctx, img, cx, cy, r, R.activeSide===(cx<R.geom.W/2?"A":"B")?R.accent:"#2a3142", name);
+  drawHead(ctx, img, cx, cy, r, R.activeSide===side?R.accent:"#2a3142", name);
   ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-  ctx.fillStyle = COL.text; ctx.font = nameFont(S*22);
-  ctx.save(); fitText(ctx, name, r*3.4); ctx.fillText(name, cx, cy + r + S*26); ctx.restore();
-  ctx.fillStyle = numColor; ctx.font = numFont(S*42);
-  ctx.fillText(fmt1(val), cx, cy + r + S*70);
+  ctx.fillStyle = COL.text; ctx.font = `700 ${S*20}px 'DM Sans',sans-serif`;
+  ctx.save(); fitText(ctx, name, r*3.4); ctx.fillText(name, cx, cy + r + S*22); ctx.restore();
+  ctx.save();
+  ctx.translate(cx, cy + r + S*66); ctx.scale(1+0.22*pulse, 1+0.22*pulse);
+  ctx.fillStyle = numColor; ctx.font = numFont(S*58);
+  ctx.textAlign="center"; ctx.textBaseline="alphabetic"; ctx.fillText(fmt1(val), 0, 0);
+  ctx.restore();
+}
+function drawGapPill(ctx, R, cx, cy, gap){
+  const S=R.geom.S, pop=gapPop(R), txt=fmt1(gap);
+  ctx.save(); ctx.font = numFont(S*30); const tw = ctx.measureText(txt).width; ctx.restore();
+  const padX=S*16, w = tw + padX*2 + S*48, h = S*44, sc = 1+0.12*pop;
+  ctx.save();
+  ctx.translate(cx,cy); ctx.scale(sc,sc); ctx.translate(-cx,-cy);
+  rr(ctx, cx-w/2, cy-h/2, w, h, h/2);
+  const g = ctx.createLinearGradient(cx-w/2,0,cx+w/2,0); g.addColorStop(0,R.accent); g.addColorStop(1,SIDE_B_TINT);
+  ctx.globalAlpha = 0.18+0.14*pop; ctx.fillStyle = g; ctx.fill(); ctx.globalAlpha = 1;
+  ctx.lineWidth = Math.max(1,S*1.5); ctx.strokeStyle = R.accent; ctx.globalAlpha = 0.45+0.55*pop; ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.textBaseline="middle"; ctx.textAlign="left";
+  ctx.fillStyle = COL.sec; ctx.font = `700 ${S*15}px 'DM Sans',sans-serif`; ctx.fillText("GAP", cx-w/2+padX, cy+S*1);
+  ctx.textAlign="right"; ctx.fillStyle = COL.text; ctx.font = numFont(S*30); ctx.fillText(txt, cx+w/2-padX, cy+S*1);
+  ctx.restore();
 }
 function drawChrome(ctx, R){
   const { W,H,S } = R.geom;
-  if(R.title){
-    ctx.textAlign="center"; ctx.textBaseline="top";
-    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*16);
-    ctx.fillText(R.title.toUpperCase(), W/2, S*8);
-  }
+  if(R.title){ ctx.textAlign="center"; ctx.textBaseline="top";
+    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*15); ctx.fillText(R.title.toUpperCase(), W/2, S*6); }
   ctx.textAlign="right"; ctx.textBaseline="bottom";
   ctx.fillStyle = R.accent; ctx.font = `800 ${S*16}px 'DM Sans',sans-serif`;
-  ctx.fillText("HOOPSMATIC", W - S*18, H - S*16);
+  ctx.fillText("HOOPSMATIC", W - S*16, H - S*14);
 }
 
 /* ============================================================
    SCROLLING DOCUMENT
    ============================================================ */
-function drawScrollFrame(ctx, R, scrollPx, valA, valB){
-  const G = R.geom;
-  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,G.W,G.H);
-
-  // document (clipped to the area below the scoreboard)
-  ctx.save();
-  ctx.beginPath(); ctx.rect(0, G.viewportTop, G.W, G.viewportH); ctx.clip();
-  for(const block of R.doc.blocks){
-    const screenTop = G.viewportTop + (block.top - scrollPx);
-    if(screenTop > G.H || screenTop + block.height < G.viewportTop) continue;
-    drawBlock(ctx, R, block, screenTop, scrollPx);
-  }
-  ctx.restore();
-
-  drawTopScoreboard(ctx, R, valA, valB);
-  drawChrome(ctx, R);
-}
 function edgeAlpha(G, top, h){
   const aIn  = clamp((G.H - top)/(G.S*70), 0, 1);
   const aOut = clamp((top + h - G.viewportTop)/(G.S*70), 0, 1);
   return Math.min(aIn, aOut);
 }
-function revealAlpha(G, centerScreen){
+/* revealed (above trigger) = full; upcoming (below) stays visible but dim, so the
+   content area is never mostly-empty; the reveal "pop" is the glow + scoreboard tick */
+function rowAlphaAt(G, centerScreen){
   if(centerScreen <= G.fireLineY) return clamp((centerScreen - G.viewportTop)/(G.S*55), 0, 1);
-  return clamp(1 - (centerScreen - G.fireLineY)/G.revealBand, 0, 1);
+  return clamp(1 - (centerScreen - G.fireLineY)/(G.S*210), 0.12, 1);
 }
-function drawBlock(ctx, R, block, screenTop, scrollPx){
-  const G = R.geom, S = G.S;
-  // ---- header band ----
-  const hAlpha = edgeAlpha(G, screenTop, block.headerH);
-  if(hAlpha > 0.01){
-    ctx.save(); ctx.globalAlpha = hAlpha;
-    ctx.fillStyle = "#11151d"; ctx.fillRect(0, screenTop, G.W, block.headerH);
-    ctx.strokeStyle = "#1c2230"; ctx.lineWidth = Math.max(1,S*1.5);
-    ctx.beginPath(); ctx.moveTo(0, screenTop+block.headerH-0.5); ctx.lineTo(G.W, screenTop+block.headerH-0.5); ctx.stroke();
-    ctx.textAlign="center"; ctx.textBaseline="top";
-    ctx.fillStyle = COL.sec; ctx.font = `800 ${S*22}px 'DM Sans',sans-serif`;
-    ctx.fillText(`SEASON ${block.n}`, G.W/2, screenTop + S*14);
-    // per-side sub-line: year · team
-    ctx.font = nameFont(S*17);
-    const subY = screenTop + S*52;
-    if(!block.aOver){
-      ctx.fillStyle = R.accent;
-      const t = `${seasonCal(block.yA)}${block.teamA?" · "+teamFull(block.teamA):""}`;
-      const cx = (G.leftColX0+G.leftColX1)/2; ctx.save(); fitText(ctx,t,G.leftColX1-G.leftColX0); ctx.fillText(t,cx,subY); ctx.restore();
-    }
-    if(!block.bOver){
-      ctx.fillStyle = SIDE_B_TINT;
-      const t = `${seasonCal(block.yB)}${block.teamB?" · "+teamFull(block.teamB):""}`;
-      const cx = (G.rightColX0+G.rightColX1)/2; ctx.save(); fitText(ctx,t,G.rightColX1-G.rightColX0); ctx.fillText(t,cx,subY); ctx.restore();
-    }
-    ctx.restore();
+function drawScrollFrame(ctx, R, scrollPx, valA, valB){
+  const G = R.geom;
+  drawBackground(ctx, R);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, G.viewportTop, G.W, G.viewportH); ctx.clip();
+  for(const block of R.doc.blocks){
+    const screenTop = G.viewportTop + (block.top - scrollPx);
+    if(screenTop > G.H || screenTop + block.height < G.viewportTop) continue;
+    drawHeader(ctx, R, block, screenTop);
+    const bodyTop = screenTop + block.headerH;
+    drawColumn(ctx, R, block, "A", G.leftColX0,  G.leftColX1,  bodyTop, scrollPx);
+    drawColumn(ctx, R, block, "B", G.rightColX0, G.rightColX1, bodyTop, scrollPx);
   }
-  // ---- centre divider ----
-  ctx.save(); ctx.globalAlpha = edgeAlpha(G, screenTop, block.height)*0.5;
-  ctx.strokeStyle = "#1c2230"; ctx.lineWidth = Math.max(1,S*1.5);
-  ctx.beginPath(); ctx.moveTo(G.W/2, Math.max(screenTop+block.headerH, G.viewportTop));
-  ctx.lineTo(G.W/2, Math.min(screenTop+block.height, G.H)); ctx.stroke(); ctx.restore();
-
-  // ---- bodies ----
-  const bodyTop = screenTop + block.headerH;
-  drawColumn(ctx, R, block, "A", G.leftColX0, G.leftColX1, bodyTop, scrollPx);
-  drawColumn(ctx, R, block, "B", G.rightColX0, G.rightColX1, bodyTop, scrollPx);
+  ctx.restore();
+  drawTopScoreboard(ctx, R, valA, valB);
+  drawChrome(ctx, R);
+}
+function drawHeader(ctx, R, block, screenTop){
+  const G=R.geom, S=G.S, a=edgeAlpha(G, screenTop, block.headerH);
+  if(a<=0.01) return;
+  ctx.save(); ctx.globalAlpha=a;
+  const cy = screenTop + block.headerH*0.46;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle = COL.text; ctx.font = `800 ${S*22}px 'DM Sans',sans-serif`;
+  ctx.fillText(`SEASON ${block.n}`, G.W/2, cy);
+  ctx.font = nameFont(S*16);
+  if(!block.aOver && block.colA.type!=="dim"){
+    ctx.fillStyle=R.accent; ctx.textAlign="left";
+    const t=`${block.yA}${block.teamA?" · "+teamFull(block.teamA):""}`;
+    ctx.save(); fitText(ctx,t,G.W*0.30); ctx.fillText(t,G.leftColX0,cy); ctx.restore();
+  }
+  if(!block.bOver && block.colB.type!=="dim"){
+    ctx.fillStyle=SIDE_B_TINT; ctx.textAlign="right";
+    const t=`${block.yB}${block.teamB?" · "+teamFull(block.teamB):""}`;
+    ctx.save(); fitText(ctx,t,G.W*0.30); ctx.fillText(t,G.rightColX1,cy); ctx.restore();
+  }
+  const ry = screenTop + block.headerH - 1;
+  const grad = ctx.createLinearGradient(0,0,G.W,0);
+  grad.addColorStop(0,"rgba(255,255,255,0)"); grad.addColorStop(.5,"rgba(255,255,255,.16)"); grad.addColorStop(1,"rgba(255,255,255,0)");
+  ctx.fillStyle = grad; ctx.fillRect(0, ry, G.W, Math.max(1,S*1.5));
+  ctx.restore();
 }
 function drawColumn(ctx, R, block, side, x0, x1, bodyTop, scrollPx){
-  const G = R.geom, S = G.S, rowH = G.rowH;
-  const over = side==="A" ? block.aOver : block.bOver;
-  const rows = side==="A" ? block.rowsA : block.rowsB;
-  const tint = side==="A" ? R.accent : SIDE_B_TINT;
-
-  if(over){
-    // career-over marker (dimmed)
-    const cy = bodyTop + rowH*0.5;
-    const a = edgeAlpha(G, cy-rowH/2, rowH) * 0.6;
-    if(a>0.01){
-      const p = side==="A" ? R.pA : R.pB;
-      ctx.save(); ctx.globalAlpha=a; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillStyle = COL.sec; ctx.font = nameFont(S*18);
-      ctx.fillText("career over", (x0+x1)/2, cy - S*10);
-      ctx.fillStyle = "#5a6172"; ctx.font = numFont(S*16);
-      ctx.fillText(`final ${fmtPts(p.score)}`, (x0+x1)/2, cy + S*16);
-      ctx.restore();
-    }
+  const G=R.geom, col = side==="A"?block.colA:block.colB, tint = side==="A"?R.accent:SIDE_B_TINT;
+  if(col.type==="dim") return;                                   // ended side — just dimmed/empty
+  if(col.type==="closing"){ drawClosing(ctx, R, side, x0, x1, bodyTop, block.bodyH, tint); return; }
+  if(col.type==="empty"){
+    const cy = bodyTop + block.bodyH/2, a = edgeAlpha(G, cy-G.rowH/2, G.rowH)*0.45;
+    if(a>0.01){ ctx.save(); ctx.globalAlpha=a; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillStyle="#5a6172"; ctx.font=nameFont(G.S*15);
+      ctx.fillText("no decorated teammates",(x0+x1)/2,cy); ctx.restore(); }
     return;
   }
-  if(rows.length===0){
-    // slim "no decorated teammates" row
-    const cy = bodyTop + rowH*0.5;
-    const a = edgeAlpha(G, cy-rowH/2, rowH)*0.5;
-    if(a>0.01){
-      ctx.save(); ctx.globalAlpha=a; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillStyle = "#5a6172"; ctx.font = nameFont(S*16);
-      ctx.fillText("no decorated teammates", (x0+x1)/2, cy); ctx.restore();
-    }
-    return;
-  }
-  rows.forEach((r,i)=>{
-    const ty = bodyTop + i*rowH;
+  col.rows.forEach((r,i)=>{
+    const ty = bodyTop + i*G.rowH;
     const centerScreen = G.viewportTop + (r.centerDoc - scrollPx);
-    const alpha = revealAlpha(G, centerScreen);
-    if(alpha <= 0.01) return;
-    const slide = (1-alpha) * S*26;
-    drawRow(ctx, R, r, x0, x1, ty + slide, alpha, tint);
+    const a = rowAlphaAt(G, centerScreen);
+    if(a<=0.01) return;
+    const slide = centerScreen>G.fireLineY ? clamp((centerScreen-G.fireLineY)/(G.S*40),0,1)*G.S*8 : 0;
+    drawRow(ctx, R, r, x0, x1, ty + slide, a, tint);
   });
 }
-function drawRow(ctx, R, r, x0, x1, ty, alpha, tint){
-  const G = R.geom, S = G.S, rowH = G.rowH, chipR = G.chipR;
-  ctx.save(); ctx.globalAlpha = alpha;
-  const cy = ty + rowH/2;
-  const chipCx = x0 + chipR + S*4;
-  drawHead(ctx, R.heads[r.teammate]||null, chipCx, cy, chipR, tint, r.teammate);
-
-  const ptsTxt = "+" + fmtPts(r.points);
+function drawClosing(ctx, R, side, x0, x1, bodyTop, bodyH, tint){
+  const G=R.geom, S=G.S, p = side==="A"?R.pA:R.pB, pad=S*6;
+  const h = Math.min(bodyH, G.rowH) - 2*pad;
+  const y = bodyTop + (bodyH - (h+2*pad))/2 + pad, x=x0, w=x1-x0;
+  const a = edgeAlpha(G, y, h)*0.6;
+  if(a<=0.01) return;
+  ctx.save(); ctx.globalAlpha=a;
+  rr(ctx,x,y,w,h,S*12); ctx.fillStyle="#151823"; ctx.fill();
+  ctx.lineWidth=Math.max(1,S*1.2); ctx.strokeStyle=tint; ctx.globalAlpha=a*0.6; ctx.stroke(); ctx.globalAlpha=a;
+  rr(ctx,x,y,S*4,h,S*2); ctx.fillStyle=tint; ctx.fill();
+  const tx=x+S*18, cy=y+h/2;
+  ctx.textAlign="left"; ctx.textBaseline="middle";
+  ctx.fillStyle=tint; ctx.font=`700 ${S*20}px 'DM Sans',sans-serif`;
+  ctx.save(); fitText(ctx,p.name,w*0.58); ctx.fillText(p.name,tx,cy-S*10); ctx.restore();
+  ctx.fillStyle=COL.sec; ctx.font=nameFont(S*15); ctx.fillText("career over",tx,cy+S*12);
+  ctx.textAlign="right"; ctx.fillStyle=tint; ctx.font=numFont(S*26); ctx.fillText(fmtPts(p.score),x1-S*16,cy);
+  ctx.restore();
+}
+function drawRow(ctx, R, r, x0, x1, ty, baseAlpha, tint){
+  const G=R.geom, S=G.S, rowH=G.rowH;
+  const big = r.points>=4, tiny = r.points<1, pad=S*6;
+  const x=x0, y=ty+pad, w=x1-x0, h=rowH-2*pad, cy=y+h/2;
+  let glow=0;
+  if(big && R.ts!=null){ const d=R.ts-r.crossTime; if(d>=-0.2) glow=clamp(1-Math.abs(d)/0.35,0,1); }
+  ctx.save(); ctx.globalAlpha = baseAlpha*(tiny?0.85:1);
+  const sc = big&&glow>0 ? 1+0.05*glow : 1;
+  if(sc!==1){ ctx.translate(x+w/2,cy); ctx.scale(sc,sc); ctx.translate(-(x+w/2),-cy); }
+  rr(ctx,x,y,w,h,S*12); ctx.fillStyle = big?"#1b2030":"#151823"; ctx.fill();
+  if(big){ ctx.save(); ctx.globalAlpha=baseAlpha*(0.35+0.65*glow); ctx.lineWidth=Math.max(1,S*1.5); ctx.strokeStyle=tint;
+    rr(ctx,x,y,w,h,S*12); ctx.stroke(); ctx.restore(); }
+  if(glow>0){ ctx.save(); rr(ctx,x,y,w,h,S*12); ctx.clip(); ctx.globalAlpha=baseAlpha*0.22*glow;
+    ctx.fillStyle=tint; ctx.fillRect(x,y,w,h); ctx.restore(); }
+  rr(ctx,x,y,S*4,h,S*2); ctx.fillStyle=tint; ctx.fill();          // 4px left accent bar
+  const chipR=h*0.36, chipCx=x+S*14+chipR;
+  drawHead(ctx, R.heads[r.teammate]||null, chipCx, cy, chipR, null, r.teammate);
+  const ptsTxt = "+"+fmtPts(r.points);
   ctx.textAlign="right"; ctx.textBaseline="middle";
-  ctx.fillStyle = tint; ctx.font = numFont(S*30);
-  const ptsW = ctx.measureText(ptsTxt).width;
-  ctx.fillText(ptsTxt, x1, cy);
-
-  const tx = chipCx + chipR + S*14;
-  const textMax = x1 - tx - ptsW - S*14;
+  ctx.fillStyle=tint; ctx.font=numFont(big?S*34:S*28);
+  const pw=ctx.measureText(ptsTxt).width; ctx.fillText(ptsTxt, x1-S*14, cy);
+  const tx = chipCx+chipR+S*14, tmax = x1 - S*14 - pw - S*12 - tx;
   ctx.textAlign="left";
-  ctx.fillStyle = COL.text; ctx.font = nameFont(S*23);
-  ctx.textBaseline="alphabetic";
-  ctx.save(); fitText(ctx, r.teammate, textMax); ctx.fillText(r.teammate, tx, cy - S*4); ctx.restore();
-  const labels = r.awards.map(awLabel).join(" · ");
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*17);
-  ctx.save(); fitText(ctx, labels, textMax); ctx.fillText(labels, tx, cy + S*18); ctx.restore();
+  ctx.fillStyle=COL.text; ctx.font=`700 ${big?S*26:S*23}px 'DM Sans',sans-serif`; ctx.textBaseline="alphabetic";
+  ctx.save(); fitText(ctx,r.teammate,tmax); ctx.fillText(r.teammate,tx,cy-S*3); ctx.restore();
+  ctx.fillStyle=tint; ctx.font=nameFont(big?S*18:S*16);
+  const labels=r.awards.map(awLabel).join(" · ");
+  ctx.save(); fitText(ctx,labels,tmax); ctx.fillText(labels,tx,cy+S*19); ctx.restore();
   ctx.restore();
 }
 
@@ -590,102 +628,86 @@ function drawRow(ctx, R, r, x0, x1, ty, alpha, tint){
    INTRO (VS) + FINAL SHARE CARD
    ============================================================ */
 function drawIntro(ctx, R, prog){
-  const G = R.geom, S = G.S, W=G.W, H=G.H;
-  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,H);
+  const G=R.geom, S=G.S, W=G.W, H=G.H;
+  drawBackground(ctx, R);
   drawChrome(ctx, R);
-  ctx.globalAlpha = easeOutCubic(clamp(prog/0.5,0,1));
-  const r = Math.min(W,H)*0.15, leftX=W*0.27, rightX=W*0.73, cy=H*0.38;
-  drawHead(ctx, R.imgA, leftX, cy, r, R.accent, R.pA.name);
-  drawHead(ctx, R.imgB, rightX, cy, r, SIDE_B_TINT, R.pB.name);
+  const e = easeOutCubic(clamp(prog/0.45,0,1));
+  ctx.globalAlpha = e;
+  const r = Math.min(W,H)*0.15, leftX=W*0.27, rightX=W*0.73, cy=H*0.37;
+  drawHead(ctx, R.imgA, leftX, cy, r, null, R.pA.name);
+  drawHead(ctx, R.imgB, rightX, cy, r, null, R.pB.name);
+  const ringP = easeOutCubic(clamp(prog/0.4,0,1));
+  ringArc(ctx, leftX, cy, r, R.accent, ringP);
+  ringArc(ctx, rightX, cy, r, SIDE_B_TINT, ringP);
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillStyle = R.accent; ctx.font = `800 ${S*64}px 'DM Sans',sans-serif`; ctx.fillText("VS", W/2, cy);
-  ctx.fillStyle = COL.text; ctx.font = nameFont(S*28); ctx.textBaseline="alphabetic";
-  ctx.save(); fitText(ctx, R.pA.name, r*2.4); ctx.fillText(R.pA.name, leftX, cy+r+S*42); ctx.restore();
-  ctx.save(); ctx.font=nameFont(S*28); fitText(ctx, R.pB.name, r*2.4); ctx.fillText(R.pB.name, rightX, cy+r+S*42); ctx.restore();
-  ctx.fillStyle = COL.gold; ctx.font = nameFont(S*18);
+  ctx.fillStyle=R.accent; ctx.font=`800 ${S*64}px 'DM Sans',sans-serif`; ctx.fillText("VS", W/2, cy);
+  ctx.fillStyle=COL.text; ctx.font=nameFont(S*28); ctx.textBaseline="alphabetic";
+  ctx.save(); fitText(ctx,R.pA.name,r*2.4); ctx.fillText(R.pA.name,leftX,cy+r+S*42); ctx.restore();
+  ctx.save(); ctx.font=nameFont(S*28); fitText(ctx,R.pB.name,r*2.4); ctx.fillText(R.pB.name,rightX,cy+r+S*42); ctx.restore();
+  ctx.fillStyle=COL.gold; ctx.font=nameFont(S*18);
   ctx.fillText(R.pA.rings>0?`${R.pA.rings} ${R.pA.rings>1?"rings":"ring"}`:"no rings", leftX, cy+r+S*70);
   ctx.fillText(R.pB.rings>0?`${R.pB.rings} ${R.pB.rings>1?"rings":"ring"}`:"no rings", rightX, cy+r+S*70);
-  // scoreboard 0.0–0.0
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*20); ctx.fillText("TEAMMATES SCORE", W/2, H*0.72);
-  ctx.fillStyle = COL.sec; ctx.font = numFont(S*36);
-  ctx.fillText("0.0", leftX, H*0.78); ctx.fillText("0.0", rightX, H*0.78);
-  ctx.fillStyle = R.accent; ctx.font = numFont(S*40); ctx.fillText("0.0", W/2, H*0.785);
-  ctx.globalAlpha = 1;
+  ctx.textAlign="center";
+  ctx.fillStyle=COL.sec; ctx.font=`700 ${S*22}px 'DM Sans',sans-serif`;
+  ctx.fillText("TEAMMATES SCORE", W/2, H*0.70);
+  if(R.title){ ctx.fillStyle=COL.text; ctx.font=nameFont(S*22);
+    ctx.save(); fitText(ctx,R.title,W*0.8); ctx.fillText(R.title, W/2, H*0.745); ctx.restore(); }
+  ctx.fillStyle=COL.sec; ctx.font=numFont(S*34);
+  ctx.fillText("0.0", leftX, H*0.83); ctx.fillText("0.0", rightX, H*0.83);
+  ctx.fillStyle=R.accent; ctx.font=numFont(S*40); ctx.fillText("0.0", W/2, H*0.832);
+  ctx.globalAlpha=1;
 }
-
-function drawFinalCard(ctx, R, prog){
-  const G = R.geom, S = G.S, W=G.W, H=G.H;
-  const A = R.pA, B = R.pB;
-  const finalA = A.score, finalB = B.score;
-  ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,H);
-  ctx.globalAlpha = easeOutCubic(clamp(prog/0.35,0,1));
-
-  // panel
-  const m = W*0.04;
-  rr(ctx, m, H*0.03, W-2*m, H*0.94, S*26); ctx.fillStyle = COL.panel; ctx.fill();
-  ctx.lineWidth = Math.max(1,S*2); ctx.strokeStyle = "#222a38"; ctx.stroke();
-
-  const aWin = finalA >= finalB;
-  const winner = aWin ? A : B, other = aWin ? B : A;
-  const leftX = W*0.27, rightX = W*0.73, r = Math.min(W,H)*0.105, headCY = H*0.15;
-
-  // heads + names + scores
-  drawHead(ctx, R.imgA, leftX,  headCY, r, aWin?R.accent:"#2a3142", A.name);
-  drawHead(ctx, R.imgB, rightX, headCY, r, aWin?"#2a3142":R.accent, B.name);
+function drawFinalCard(ctx, R, alpha){
+  const G=R.geom, S=G.S, W=G.W, H=G.H, A=R.pA, B=R.pB;
+  const finalA=A.score, finalB=B.score, aWin=finalA>=finalB;
+  const winner=aWin?A:B, other=aWin?B:A;
+  ctx.save(); ctx.globalAlpha=alpha;
+  drawBackground(ctx, R);
+  const m=W*0.04;
+  rr(ctx,m,H*0.03,W-2*m,H*0.94,S*26); ctx.fillStyle=COL.panel; ctx.fill();
+  ctx.lineWidth=Math.max(1,S*2); ctx.strokeStyle="#222a38"; ctx.stroke();
+  const leftX=W*0.27, rightX=W*0.73, r=Math.min(W,H)*0.105, headCY=H*0.15;
+  drawHead(ctx,R.imgA,leftX,headCY,r,aWin?R.accent:"#2a3142",A.name);
+  drawHead(ctx,R.imgB,rightX,headCY,r,aWin?"#2a3142":R.accent,B.name);
   ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-  ctx.fillStyle = COL.text; ctx.font = nameFont(S*26);
-  ctx.save(); fitText(ctx, A.name, r*2.7); ctx.fillText(A.name, leftX, headCY+r+S*34); ctx.restore();
-  ctx.save(); ctx.font=nameFont(S*26); fitText(ctx, B.name, r*2.7); ctx.fillText(B.name, rightX, headCY+r+S*34); ctx.restore();
-  ctx.fillStyle = aWin?R.accent:COL.sec; ctx.font = numFont(S*54); ctx.fillText(fmtPts(finalA), leftX, headCY+r+S*88);
-  ctx.fillStyle = aWin?COL.sec:R.accent; ctx.font = numFont(S*54); ctx.fillText(fmtPts(finalB), rightX, headCY+r+S*88);
-
-  // gap + verdict
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*16); ctx.fillText("GAP", W/2, headCY - r*0.2);
-  ctx.fillStyle = R.accent; ctx.font = numFont(S*40); ctx.fillText(fmt1(Math.abs(finalA-finalB)), W/2, headCY + r*0.35);
-  ctx.fillStyle = COL.text; ctx.font = `800 ${S*36}px 'DM Sans',sans-serif`;
-  ctx.save(); fitText(ctx, `${winner.name} had more help`, W*0.86);
-  ctx.fillText(`${winner.name} had more help`, W/2, H*0.45); ctx.restore();
-  ctx.fillStyle = COL.sec; ctx.font = nameFont(S*18);
+  ctx.fillStyle=COL.text; ctx.font=nameFont(S*26);
+  ctx.save(); fitText(ctx,A.name,r*2.7); ctx.fillText(A.name,leftX,headCY+r+S*34); ctx.restore();
+  ctx.save(); ctx.font=nameFont(S*26); fitText(ctx,B.name,r*2.7); ctx.fillText(B.name,rightX,headCY+r+S*34); ctx.restore();
+  ctx.fillStyle=aWin?R.accent:COL.sec; ctx.font=numFont(S*54); ctx.fillText(fmtPts(finalA),leftX,headCY+r+S*90);
+  ctx.fillStyle=aWin?COL.sec:R.accent; ctx.font=numFont(S*54); ctx.fillText(fmtPts(finalB),rightX,headCY+r+S*90);
+  ctx.fillStyle=COL.sec; ctx.font=nameFont(S*16); ctx.fillText("GAP", W/2, headCY-r*0.18);
+  ctx.fillStyle=R.accent; ctx.font=numFont(S*40); ctx.fillText(fmt1(Math.abs(finalA-finalB)), W/2, headCY+r*0.4);
+  ctx.fillStyle=COL.text; ctx.font=`800 ${S*36}px 'DM Sans',sans-serif`;
+  ctx.save(); fitText(ctx,`${winner.name} had more help`,W*0.86); ctx.fillText(`${winner.name} had more help`,W/2,H*0.45); ctx.restore();
+  ctx.fillStyle=COL.sec; ctx.font=nameFont(S*18);
   ctx.fillText(`${winner.perSeason}/season  vs  ${other.perSeason}/season`, W/2, H*0.485);
-
-  // top teammates columns
   drawTopTeammates(ctx, R, A, W*0.06, W*0.47, H*0.55, R.accent);
   drawTopTeammates(ctx, R, B, W*0.53, W*0.94, H*0.55, SIDE_B_TINT);
-
-  // wordmark
   ctx.textAlign="right"; ctx.textBaseline="bottom";
-  ctx.fillStyle = R.accent; ctx.font = `800 ${S*18}px 'DM Sans',sans-serif`;
+  ctx.fillStyle=R.accent; ctx.font=`800 ${S*18}px 'DM Sans',sans-serif`;
   ctx.fillText("HOOPSMATIC", W-m-S*14, H*0.97-S*14);
-  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 function drawTopTeammates(ctx, R, p, x0, x1, y0, tint){
-  const G = R.geom, S = G.S;
-  const list = R.agg[p.name];
+  const G=R.geom, S=G.S, list=R.agg[p.name];
   ctx.textAlign="left"; ctx.textBaseline="alphabetic";
-  ctx.fillStyle = COL.sec; ctx.font = `700 ${S*15}px 'DM Sans',sans-serif`;
-  ctx.fillText("TOP TEAMMATES", x0, y0);
-  const top = list.slice(0,3);
-  const rowH = S*64, chipR = S*22;
+  ctx.fillStyle=COL.sec; ctx.font=`700 ${S*15}px 'DM Sans',sans-serif`; ctx.fillText("TOP TEAMMATES", x0, y0);
+  const top=list.slice(0,3), rowH=S*64, chipR=S*22;
   top.forEach((e,i)=>{
-    const ty = y0 + S*16 + i*rowH;
-    const cy = ty + rowH*0.45;
+    const ty=y0+S*16+i*rowH, cy=ty+rowH*0.45;
     drawHead(ctx, R.heads[e.name]||null, x0+chipR, cy, chipR, tint, e.name);
-    const tx = x0 + chipR*2 + S*12;
-    const ptsTxt = fmtPts(e.pts);
-    ctx.textAlign="right"; ctx.fillStyle = tint; ctx.font = numFont(S*24);
-    const pw = ctx.measureText(ptsTxt).width; ctx.fillText(ptsTxt, x1, cy - S*2);
-    ctx.textAlign="left";
-    ctx.fillStyle = COL.text; ctx.font = nameFont(S*21);
-    ctx.save(); fitText(ctx, e.name, x1 - tx - pw - S*12); ctx.fillText(e.name, tx, cy - S*6); ctx.restore();
-    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*15);
-    ctx.save(); fitText(ctx, e.marquee, x1 - tx - S*4); ctx.fillText(e.marquee, tx, cy + S*16); ctx.restore();
+    const tx=x0+chipR*2+S*12, ptsTxt=fmtPts(e.pts);
+    ctx.textAlign="right"; ctx.fillStyle=tint; ctx.font=numFont(S*24);
+    const pw=ctx.measureText(ptsTxt).width; ctx.fillText(ptsTxt,x1,cy-S*2);
+    ctx.textAlign="left"; ctx.fillStyle=COL.text; ctx.font=nameFont(S*21);
+    ctx.save(); fitText(ctx,e.name,x1-tx-pw-S*12); ctx.fillText(e.name,tx,cy-S*6); ctx.restore();
+    ctx.fillStyle=COL.sec; ctx.font=nameFont(S*15);
+    ctx.save(); fitText(ctx,e.marquee,x1-tx-S*4); ctx.fillText(e.marquee,tx,cy+S*16); ctx.restore();
   });
-  const others = list.slice(3);
+  const others=list.slice(3);
   if(others.length){
-    const op = others.reduce((a,e)=>a+e.pts,0);
-    const ty = y0 + S*16 + 3*rowH + S*6;
-    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*16);
-    ctx.fillText(`+ ${others.length} others · ${fmtPts(op)}`, x0, ty);
+    const op=others.reduce((a,e)=>a+e.pts,0), ty=y0+S*16+3*rowH+S*6;
+    ctx.fillStyle=COL.sec; ctx.font=nameFont(S*16); ctx.fillText(`+ ${others.length} others · ${fmtPts(op)}`, x0, ty);
   }
 }
 
@@ -698,11 +720,12 @@ async function prepare(){
   if(pA.name === pB.name) throw new Error("Pick two different players.");
   const opts = getOpts();
   const geom = buildGeom(opts);
-  const doc = buildDocument(pA, pB, geom);
-  if(!doc.rows.length) throw new Error("No decorated teammates to show for this matchup.");
-  const { perItem, scrollSec } = pacing(doc.rows.length);
+  const plan = buildPlan(pA, pB);
+  const doc = buildDocument(plan, geom);
+  if(!doc.anchors.length) throw new Error("No decorated teammates to show for this matchup.");
+  const M = doc.anchors.length;
+  const { perItem, scrollSec } = pacing(M);
 
-  // preload every headshot before the frame loop
   $("status").textContent = "Loading headshots…";
   const heads = await preloadHeads(involvedNames(pA,pB), (d,n)=>{
     $("status").textContent = `Loading headshots… ${d}/${n}`; setBar(d/n*0.15);
@@ -713,58 +736,67 @@ async function prepare(){
   const fps = opts.fps;
   const introF = Math.round(INTRO_SEC*fps);
   const scrollF = Math.max(1, Math.round(scrollSec*fps));
-  const finalF  = Math.round(FINAL_SEC*fps);
-  const total = introF + scrollF + finalF;
+  const transF = Math.round(TRANS_SEC*fps);
+  const finalF = Math.round(FINAL_SEC*fps);
+  const total = introF + scrollF + transF + finalF;
 
-  const startPx = -geom.viewportH;
-  const endPx   = doc.docHeight + (geom.fireLineY - geom.viewportTop) + geom.rowH*2;
-  const scrollDistance = endPx - startPx;
+  // anchor reveal times + per-side big-reveal crossings (for pulses)
+  const anchorTimes=[], bigCross={A:[],B:[]};
+  doc.anchors.forEach((an,k)=>{ an.time = LEAD_SEC + k*perItem; anchorTimes.push(an.time);
+    for(const r of an.rows){ r.crossTime = an.time; if(r.points>=4) bigCross[r.side].push(an.time); } });
 
-  const R = {
-    geom, accent: opts.accent, title: opts.title,
-    pA, pB, doc, heads,
-    imgA: heads[pA.name]||null, imgB: heads[pB.name]||null,
-    agg: { [pA.name]: aggregate(pA), [pB.name]: aggregate(pB) },
-    activeSide: null
-  };
-
+  const band = geom.rowH, settleAdvance = geom.rowH*1.3, AN = doc.anchors;
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const easeIO = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+  function scrollPxAt(ts){
+    if(ts <= LEAD_SEC) return lerp(AN[0].fire - band, AN[0].fire, easeIO(clamp(ts/LEAD_SEC,0,1)));
+    const tA = ts - LEAD_SEC, lastT = (M-1)*perItem;
+    if(tA >= lastT) return lerp(AN[M-1].fire, AN[M-1].fire + settleAdvance, clamp((tA-lastT)/SETTLE_SEC,0,1));
+    const k = Math.min(M-2, Math.floor(tA/perItem)), segFrac = (tA - k*perItem)/perItem;
+    return lerp(AN[k].fire, AN[k+1].fire, easeIO(segFrac));
+  }
+  const scrollEndPx = scrollPxAt(scrollSec);
   function tally(scrollPx){
     let vA=0, vB=0;
-    const band = geom.rowH;
-    for(const r of doc.rows){
-      const f = clamp((scrollPx - (r.fire - band))/band, 0, 1);
-      if(f<=0) continue;
-      if(r.side==="A") vA += r.points*f; else vB += r.points*f;
-    }
+    for(const r of doc.rows){ const f = clamp((scrollPx - (r.fire - band))/band, 0, 1);
+      if(f<=0) continue; if(r.side==="A") vA+=r.points*f; else vB+=r.points*f; }
     return [vA, vB];
   }
-  function currentSide(scrollPx){
-    // the side whose most-recent row is mid-reveal (for scoreboard ring glow)
-    let best=null, bestD=Infinity;
-    for(const r of doc.rows){
-      const d = Math.abs(scrollPx - r.fire);
-      if(d<bestD){ bestD=d; best=r.side; }
-    }
-    return bestD < geom.rowH ? best : null;
+  function activeAt(ts){
+    let best=null, bd=1e9;
+    for(const an of AN){ const d=Math.abs(ts-an.time); if(d<bd){ bd=d;
+      let s=null,mp=-1; for(const r of an.rows) if(r.points>mp){ mp=r.points; s=r.side; } best=s; } }
+    return bd<0.4 ? best : null;
   }
+
+  const R = { geom, accent:opts.accent, title:opts.title, pA, pB, doc, heads,
+              imgA:heads[pA.name]||null, imgB:heads[pB.name]||null,
+              agg:{ [pA.name]:aggregate(pA), [pB.name]:aggregate(pB) },
+              anchorTimes, bigCross, ts:null, activeSide:null };
+
   const ctx = cv.getContext("2d");
   function drawFrame(g){
-    if(g < introF){ R.activeSide=null; drawIntro(ctx, R, g/introF); return; }
+    if(g < introF){ R.ts=null; R.activeSide=null; drawIntro(ctx, R, g/introF); return; }
     if(g < introF + scrollF){
-      const p = (g - introF)/scrollF;
-      const scrollPx = startPx + p*scrollDistance;
-      const [vA,vB] = tally(scrollPx);
-      R.activeSide = currentSide(scrollPx);
-      drawScrollFrame(ctx, R, scrollPx, vA, vB);
+      const ts = (g - introF)/fps; R.ts = ts; R.activeSide = activeAt(ts);
+      const scrollPx = scrollPxAt(ts); const [vA,vB] = tally(scrollPx);
+      drawScrollFrame(ctx, R, scrollPx, vA, vB); return;
+    }
+    if(g < introF + scrollF + transF){
+      const tp = easeOutCubic((g - introF - scrollF)/transF);
+      R.ts = scrollSec; R.activeSide = null;
+      const [vA,vB] = tally(scrollEndPx);
+      drawScrollFrame(ctx, R, scrollEndPx, vA, vB);   // frozen last scroll frame
+      drawFinalCard(ctx, R, tp);                       // finale fades in over it
       return;
     }
-    const p = clamp((g - introF - scrollF)/finalF, 0, 1);
-    R.activeSide=null; drawFinalCard(ctx, R, p);
+    R.ts=null; R.activeSide=null; drawFinalCard(ctx, R, 1);
   }
 
   return { opts, fps, total, drawFrame, cv,
-           totalSec: INTRO_SEC + scrollSec + FINAL_SEC, rows: doc.rows.length };
+           totalSec: INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC, rows: M };
 }
+
 
 /* ============================================================
    PREVIEW / MP4 / WEBM
