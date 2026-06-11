@@ -156,8 +156,7 @@ const AWARD_LABEL = {
   "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
   "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
 };
-const INTRO_SEC = 2.5, FINAL_SEC = 5, LEAD_SEC = 0.5, SETTLE_SEC = 0.8, TRANS_SEC = 0.4;
-const FILLER_SEC = 0.4, CLOSE_SEC = 1.0;   // empty / career-over seasons get minimal time
+const INTRO_SEC = 2.5, FINAL_SEC = 5, TRANS_SEC = 0.4;
 
 let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={};
 let granularity = "accolade";
@@ -328,37 +327,33 @@ function marqueeAccolades(aw){
   return items.slice(0,2).map(a => (aw[a]>1 ? `${aw[a]}× ` : "") + awLabel(a)).join(" · ");
 }
 
-/* ---------- pacing (anchor-driven; empty/career-over seasons get minimal time) ----------
-   A waypoint is created per reveal slot ('beat'), per career-over card ('close'),
-   and per both-empty season ('filler'). The first waypoint is reached after LEAD
-   (cold open on Season 1); each later one adds time by its kind. */
-function buildSchedule(plan, perItem){
-  const wps = [];
-  plan.forEach((pb,bi)=>{
+/* ---------- pacing: strict metronome, one beat per element ----------
+   Σ weights drives the scroll length; the beat is constant (no density
+   adaptation). beat = (target − intro − transition − finale) / Σweights,
+   clamped 0.5–1.2s; a manual "seconds per reveal" override sets it directly. */
+function planWeights(plan){
+  let weightSum=0, beats=0, headers=0, fillers=0, closes=0;
+  for(const pb of plan){
     const sc = Math.max(pb.colA.rows.length, pb.colB.rows.length);
-    if(sc>0){ for(let i=0;i<sc;i++) wps.push({ kind:"beat", bi, ai:i }); }
-    else if(pb.colA.type==="closing" || pb.colB.type==="closing") wps.push({ kind:"close", bi });
-    else wps.push({ kind:"filler", bi });
-  });
-  let t = 0;
-  wps.forEach((w,i)=>{
-    t += (i===0 ? LEAD_SEC : w.kind==="beat" ? perItem : w.kind==="close" ? CLOSE_SEC : FILLER_SEC);
-    w.time = t;
-  });
-  const scrollSec = (wps.length ? wps[wps.length-1].time : LEAD_SEC) + SETTLE_SEC;
-  return { wps, scrollSec };
+    const hasClosing = pb.colA.type==="closing" || pb.colB.type==="closing";
+    headers++; weightSum += EL_WEIGHT.header;
+    if(sc>0){ beats += sc; weightSum += sc*EL_WEIGHT.row; }
+    else if(hasClosing){ closes++; weightSum += EL_WEIGHT.close; }
+    else { fillers++; weightSum += EL_WEIGHT.filler; }
+  }
+  return { weightSum, beats, headers, fillers, closes };
 }
 function pacing(plan){
-  const beats = plan.reduce((a,pb)=>a+Math.max(pb.colA.rows.length, pb.colB.rows.length), 0);
+  const { weightSum, beats, fillers, closes } = planWeights(plan);
   const durSel = $("dur").value, manual = parseFloat($("perItem").value);
-  let perItem;
-  if(!isNaN(manual) && manual>0)      perItem = manual;
-  else if(durSel === "manual")        perItem = 0.7;
+  let beat;
+  if(!isNaN(manual) && manual>0)      beat = manual;                 // override sets the beat
+  else if(durSel === "manual")        beat = 0.7;
   else { const target = durSel==="auto" ? 60 : parseFloat(durSel);
-         perItem = clamp(target / Math.max(beats,1), 0.35, 1.2); }
-  const { scrollSec } = buildSchedule(plan, perItem);
+         beat = clamp((target - INTRO_SEC - TRANS_SEC - FINAL_SEC) / Math.max(weightSum, 0.5), 0.5, 1.2); }
+  const scrollSec = beat * weightSum;
   const total = INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC;
-  return { perItem, scrollSec, total, beats };
+  return { beat, scrollSec, total, beats, weightSum, fillers, closes };
 }
 function getOpts(){
   const [w,h] = $("res").value.split("x").map(Number);
@@ -370,14 +365,13 @@ function refreshMeta(){
   const pA = BY_NAME[$("pa").value], pB = BY_NAME[$("pb").value];
   if(!pA || !pB){ $("matchmeta").innerHTML = "Pick two players."; $("timeline").textContent=""; return; }
   const plan = buildPlan(pA,pB);
-  const fillers = plan.filter(pb=>pb.bothEmpty).length;
-  const { perItem, scrollSec, total, beats } = pacing(plan);
+  const { beat, scrollSec, total, beats, fillers } = pacing(plan);
   $("matchmeta").innerHTML =
     `<b>${pA.name}</b> — ${pA.score} · ${pA.perSeason}/season · ${pA.seasons} seasons · ${pA.rings}🏆<br>`+
     `<b>${pB.name}</b> — ${pB.score} · ${pB.perSeason}/season · ${pB.seasons} seasons · ${pB.rings}🏆`;
   $("timeline").innerHTML =
     `<span class="pill">${beats} reveals</span>`+
-    `<span class="pill">${perItem.toFixed(2)}s each</span>`+
+    `<span class="pill">beat ${beat.toFixed(2)}s</span>`+
     `<span class="pill">${plan.length} seasons (${fillers} empty)</span>`+
     `<span class="pill">scroll ${scrollSec.toFixed(1)}s</span>`+
     `<span class="pill"><b>≈ ${total.toFixed(1)}s total</b></span>`+
@@ -394,17 +388,24 @@ function buildGeom(opts){
   const fireLineY = viewportTop + viewportH*0.34;               // trigger line (upper-third)
   const leftColX0 = W*0.04,  leftColX1 = W*0.49;
   const rightColX0 = W*0.51, rightColX1 = W*0.96;
-  const rowH = S*80, headerH = S*66, blockGap = S*16, chipR = rowH*0.32;
+  const rowH = S*80, headerH = S*66, chipR = rowH*0.32;
   return { W,H,S, sbH, viewportTop, viewportH, fireLineY,
-           leftColX0,leftColX1,rightColX0,rightColX1, rowH, headerH, blockGap, chipR };
+           leftColX0,leftColX1,rightColX0,rightColX1, rowH, headerH, chipR };
 }
-/* lay the plan out in document space; collect anchors (reveal slots).
-   Each block gets a kind: 'content' (>=1 reveal), 'close' (career-over card
-   only), or 'filler' (both-empty season — slim, scrolled past fast). */
+/* lay the plan out in document space AND emit a flat metronome sequence.
+   Element weights (one beat × weight each):
+     season header 0.5 · accolade/teammate-season row 1.0 ·
+     empty-season filler 0.85 · career-over card 1.0.
+   The block gap is folded into the header element so element heights tile
+   docY exactly (height-per-beat == element height). */
+const EL_WEIGHT = { header:0.5, row:1.0, filler:0.85, close:1.0 };
 function buildDocument(plan, geom){
-  const { rowH, headerH, blockGap, viewportTop, fireLineY } = geom;
+  const { rowH, headerH, viewportTop, fireLineY } = geom;
   const fireOffset = fireLineY - viewportTop;
-  const blocks=[], rows=[], anchors=[]; let docY=0;
+  const blocks=[], rows=[], elements=[]; let docY=0;
+  // each element's rest scroll position aligns its bottom to the trigger line,
+  // so the per-beat step equals exactly the element's own height.
+  const push = el => { el.restScroll = (el.top + el.height) - fireOffset; elements.push(el); return el; };
   for(const pb of plan){
     const rowsA = pb.colA.rows, rowsB = pb.colB.rows;
     const slotCount = Math.max(rowsA.length, rowsB.length);
@@ -415,22 +416,28 @@ function buildDocument(plan, geom){
     const slotsB = pb.colB.type==="rows" ? rowsB.length : slots(pb.colB.type);
     const bodyH = kind==="filler" ? rowH*0.7 : Math.max(slotsA, slotsB, 1) * rowH;
     const top = docY, bodyTop = top + headerH;
-    const blockAnchors = [];
-    for(let i=0;i<slotCount;i++){
-      const docCenter = bodyTop + i*rowH + rowH/2;
-      const an = { docY:docCenter, fire:docCenter-fireOffset, rows:[], time:0, side:null };
-      const rA=rowsA[i], rB=rowsB[i];
-      if(rA){ rA.centerDoc=docCenter; rA.fire=an.fire; an.rows.push(rA); rows.push(rA); }
-      if(rB){ rB.centerDoc=docCenter; rB.fire=an.fire; an.rows.push(rB); rows.push(rB); }
-      let s=null,mp=-1; for(const r of an.rows) if(r.points>mp){ mp=r.points; s=r.side; } an.side=s;
-      anchors.push(an); blockAnchors.push(an);
+    const block = { ...pb, top, bodyTop, headerH, bodyH, kind, height: headerH + bodyH };
+    blocks.push(block);
+    push({ type:"header", block, top, height:headerH, weight:EL_WEIGHT.header });
+    if(kind==="filler"){
+      push({ type:"filler", block, top:bodyTop, height:bodyH, weight:EL_WEIGHT.filler });
+    } else if(kind==="close"){
+      push({ type:"close", block, top:bodyTop, height:bodyH, weight:EL_WEIGHT.close });
+    } else {
+      for(let i=0;i<slotCount;i++){
+        const slotTop = bodyTop + i*rowH, docCenter = slotTop + rowH/2;
+        const slotRows = [];
+        const rA=rowsA[i], rB=rowsB[i];
+        if(rA){ rA.centerDoc=docCenter; slotRows.push(rA); rows.push(rA); }
+        if(rB){ rB.centerDoc=docCenter; slotRows.push(rB); rows.push(rB); }
+        let s=null,mp=-1; for(const r of slotRows) if(r.points>mp){ mp=r.points; s=r.side; }
+        push({ type:"row", block, slotIndex:i, top:slotTop, height:rowH, weight:EL_WEIGHT.row,
+               rows:slotRows, side:s });
+      }
     }
-    const centerDoc = bodyTop + bodyH/2;
-    blocks.push({ ...pb, top, headerH, bodyH, height: headerH + bodyH + blockGap,
-                  kind, anchors:blockAnchors, centerFire: centerDoc - fireOffset });
-    docY += headerH + bodyH + blockGap;
+    docY += block.height;
   }
-  return { blocks, rows, anchors, docHeight:docY };
+  return { blocks, rows, elements, docHeight:docY };
 }
 
 /* ============================================================
@@ -806,7 +813,7 @@ async function prepare(){
   const plan = buildPlan(pA, pB);
   const doc = buildDocument(plan, geom);
   if(!doc.rows.length) throw new Error("No decorated teammates to show for this matchup.");
-  const { perItem, scrollSec } = pacing(plan);
+  const { beat, scrollSec } = pacing(plan);
 
   $("status").textContent = "Loading headshots…";
   const heads = await preloadHeads(involvedNames(pA,pB), (d,n)=>{
@@ -822,68 +829,71 @@ async function prepare(){
   const finalF = Math.round(FINAL_SEC*fps);
   const total = introF + scrollF + transF + finalF;
 
-  // Build the scroll timeline: one waypoint per reveal slot / career-over card /
-  // empty season. Camera reaches each waypoint's scrollPx at its scheduled time.
-  const { wps } = buildSchedule(plan, perItem);
-  const tl = [], anchorTimes=[], bigCross={A:[],B:[]};
-  for(const w of wps){
-    const block = doc.blocks[w.bi];
-    if(w.kind==="beat"){
-      const an = block.anchors[w.ai];
-      an.time = w.time;
-      for(const r of an.rows){ r.crossTime = w.time; if(r.points>=4) bigCross[r.side].push(w.time); }
-      anchorTimes.push(w.time);
-      tl.push({ time:w.time, scrollPx:an.fire, beat:true, side:an.side });
-    } else {
-      tl.push({ time:w.time, scrollPx:block.centerFire, beat:false, side:null });
-    }
-  }
-  const band = geom.rowH, settleAdvance = geom.rowH*1.3;
-  const lerp = (a,b,t)=>a+(b-a)*t;
+  // ---- METRONOME ----
+  // Each element gets one beat × its weight. Within a beat the scroll eases
+  // (in-out) by exactly the element's height over STEP_FRAC of the beat, then
+  // rests; rows tick the scoreboard the instant their step completes.
+  const STEP_FRAC = 0.65, TICK_RAMP = 0.12;
+  const els = doc.elements;
   const easeIO = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
-  function scrollPxAt(ts){
-    if(!tl.length) return 0;
-    const first = tl[0];
-    if(ts <= first.time) return lerp(first.scrollPx - band, first.scrollPx, easeIO(clamp(ts/first.time,0,1)));
-    for(let i=0;i<tl.length-1;i++){
-      if(ts <= tl[i+1].time){
-        const f = (ts - tl[i].time)/(tl[i+1].time - tl[i].time);
-        return lerp(tl[i].scrollPx, tl[i+1].scrollPx, easeIO(f));
-      }
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  let tAcc = 0;
+  const fireOffset = geom.fireLineY - geom.viewportTop;
+  const initialScroll = -fireOffset;                 // Season-1 header sits at the trigger at t=0
+  const bigCross = { A:[], B:[] };
+  els.forEach((el,i)=>{
+    el.dur = beat * el.weight;
+    el.tStart = tAcc;
+    el.restFrom = i===0 ? initialScroll : els[i-1].restScroll;
+    el.arrive = tAcc + STEP_FRAC*el.dur;             // step complete = scoreboard tick moment
+    tAcc += el.dur;
+    if(el.type==="row"){
+      for(const r of el.rows){ r.crossTime = el.arrive; if(r.points>=4) bigCross[r.side].push(el.arrive); }
     }
-    const last = tl[tl.length-1];
-    return lerp(last.scrollPx, last.scrollPx + settleAdvance, clamp((ts-last.time)/SETTLE_SEC,0,1));
+  });
+  const lastEl = els[els.length-1];
+  function scrollPxAt(ts){
+    if(!els.length) return initialScroll;
+    if(ts <= 0) return initialScroll;
+    if(ts >= tAcc) return lastEl.restScroll;
+    let lo=0, hi=els.length-1;                        // binary search the active element
+    while(lo<hi){ const mid=(lo+hi+1)>>1; if(els[mid].tStart<=ts) lo=mid; else hi=mid-1; }
+    const el = els[lo], local = ts - el.tStart, stepDur = STEP_FRAC*el.dur;
+    if(local >= stepDur) return el.restScroll;         // settle: hold
+    return lerp(el.restFrom, el.restScroll, easeIO(local/stepDur));
   }
-  const scrollEndPx = scrollPxAt(scrollSec);
-  function tally(scrollPx){
+  const scrollEndPx = lastEl ? lastEl.restScroll : initialScroll;
+  // tally is purely time-based: a row's points roll in over TICK_RAMP once its
+  // step completes, so the number bumps land on the visual pulse exactly.
+  function tally(ts){
     let vA=0, vB=0;
-    for(const r of doc.rows){ const f = clamp((scrollPx - (r.fire - band))/band, 0, 1);
+    for(const r of doc.rows){ const f = clamp((ts - r.crossTime)/TICK_RAMP, 0, 1);
       if(f<=0) continue; if(r.side==="A") vA+=r.points*f; else vB+=r.points*f; }
     return [vA, vB];
   }
   function activeAt(ts){
     let best=null, bd=1e9;
-    for(const w of tl){ if(!w.beat) continue; const d=Math.abs(ts-w.time); if(d<bd){ bd=d; best=w.side; } }
-    return bd<0.4 ? best : null;
+    for(const el of els){ if(el.type!=="row") continue; const d=Math.abs(ts-el.arrive); if(d<bd){ bd=d; best=el.side; } }
+    return bd<0.5 ? best : null;
   }
 
   const R = { geom, accent:opts.accent, title:opts.title, explainer:opts.explainer, pA, pB, doc, heads,
               imgA:heads[pA.name]||null, imgB:heads[pB.name]||null,
               agg:{ [pA.name]:aggregate(pA), [pB.name]:aggregate(pB) },
-              anchorTimes, bigCross, ts:null, activeSide:null };
+              anchorTimes: els.filter(e=>e.type==="row").map(e=>e.arrive), bigCross, ts:null, activeSide:null };
 
   const ctx = cv.getContext("2d");
   function drawFrame(g){
     if(g < introF){ R.ts=null; R.activeSide=null; drawIntro(ctx, R, g/introF); return; }
     if(g < introF + scrollF){
       const ts = (g - introF)/fps; R.ts = ts; R.activeSide = activeAt(ts);
-      const scrollPx = scrollPxAt(ts); const [vA,vB] = tally(scrollPx);
+      const scrollPx = scrollPxAt(ts); const [vA,vB] = tally(ts);
       drawScrollFrame(ctx, R, scrollPx, vA, vB); return;
     }
     if(g < introF + scrollF + transF){
       const tp = easeOutCubic((g - introF - scrollF)/transF);
       R.ts = scrollSec; R.activeSide = null;
-      const [vA,vB] = tally(scrollEndPx);
+      const [vA,vB] = tally(scrollSec);
       drawScrollFrame(ctx, R, scrollEndPx, vA, vB);   // frozen last scroll frame
       drawFinalCard(ctx, R, tp);                       // finale fades in over it
       return;
