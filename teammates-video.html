@@ -108,6 +108,8 @@
       <h2>Style</h2>
       <label>Title line</label>
       <input type="text" id="title" value="Who had more help?">
+      <label>Intro explainer line</label>
+      <input type="text" id="explainer" value="Let's take a look at the accolades of their teammates">
       <label>Accent color</label>
       <input type="color" id="accent" value="#3b82f6">
       <span class="meta" style="margin-left:8px">Winner shown in this color.</span>
@@ -154,7 +156,8 @@ const AWARD_LABEL = {
   "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
   "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
 };
-const INTRO_SEC = 2.2, FINAL_SEC = 5, LEAD_SEC = 0.5, SETTLE_SEC = 0.8, TRANS_SEC = 0.4;
+const INTRO_SEC = 2.5, FINAL_SEC = 5, LEAD_SEC = 0.5, SETTLE_SEC = 0.8, TRANS_SEC = 0.4;
+const FILLER_SEC = 0.4, CLOSE_SEC = 1.0;   // empty / career-over seasons get minimal time
 
 let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={};
 let granularity = "accolade";
@@ -200,14 +203,21 @@ async function boot(){
 }
 
 /* ============================================================
-   HEADSHOT RESOLUTION  (hs file -> proxy id -> initials)
+   HEADSHOT RESOLUTION  — cascading chain, tried in order until one
+   image actually loads, else initials:
+     1) deployed face crop (player.hs)
+     2) CORS proxy by NBA id from headshot_ids.json (normalized name)
+     3) CORS proxy by id parsed out of the hs filename (covers mangled
+        slugs whose face crop 404s, e.g. "1629029-luka-doni.png")
    ============================================================ */
-function headshotURL(name){
+function headshotCandidates(name){
   const rec = BY_NAME[name];
-  if(rec && rec.hs) return HEADSHOT_BASE + rec.hs;          // (a) deployed face crop
+  const urls = [];
+  if(rec && rec.hs) urls.push(HEADSHOT_BASE + rec.hs);          // (1) face crop
   const id = HEADSHOT_IDS[normName(name)];
-  if(id != null) return PROXY_BASE + id;                     // (b) CORS proxy by NBA id
-  return null;                                               // (c) initials fallback
+  if(id != null) urls.push(PROXY_BASE + id);                    // (2) proxy by mapped id
+  if(rec && rec.hs){ const m = /^(\d+)/.exec(rec.hs); if(m) urls.push(PROXY_BASE + m[1]); } // (3) proxy by hs id
+  return [...new Set(urls)];
 }
 const urlCache = {};                 // url -> Promise<Image|null>
 function loadImg(url){
@@ -222,15 +232,25 @@ function loadImg(url){
   });
   return urlCache[url];
 }
-/* preload every headshot a render will need; returns name -> Image|null */
+/* try candidates in order; resolve with the first that loads, else null */
+async function loadHead(name){
+  const cands = headshotCandidates(name);
+  for(const url of cands){ const img = await loadImg(url); if(img) return img; }
+  return null;
+}
+/* preload every headshot a render will need; returns name -> Image|null.
+   Logs misses (names that fell through to initials) for diagnosis. */
 async function preloadHeads(names, onProgress){
   const uniq = [...new Set(names)];
-  const map = {};
+  const map = {}, misses = [];
   let done = 0;
   await Promise.all(uniq.map(async nm => {
-    map[nm] = await loadImg(headshotURL(nm));
+    const img = await loadHead(nm);
+    map[nm] = img;
+    if(!img) misses.push(nm + (headshotCandidates(nm).length ? " (had url, load failed)" : " (no id/hs)"));
     done++; if(onProgress) onProgress(done, uniq.length);
   }));
+  if(misses.length) console.warn(`[headshots] ${misses.length}/${uniq.length} fell back to initials:`, misses.sort());
   return map;
 }
 
@@ -256,9 +276,10 @@ function seasonRows(entry, side){
   }
   return out;
 }
-/* career-aligned plan: one entry per kept career-season, each side a column
-   descriptor. Empty-vs-empty seasons are dropped (compresses scroll time);
-   a career end yields a single 'closing' card, after which that side is 'dim'. */
+/* career-aligned plan: EVERY career-season index from 1..max appears (the
+   video always opens on Season 1). A career end yields a single 'closing'
+   card, after which that side is 'dim'. Both-empty seasons are kept but
+   marked bothEmpty (rendered slim, scrolled past fast). */
 function buildPlan(pA,pB){
   const dA=byYear(pA), dB=byYear(pB);
   const maxN=Math.max(pA.years.length, pB.years.length);
@@ -274,19 +295,15 @@ function buildPlan(pA,pB){
                       : (!shownA?{type:"closing",rows:[]}:{type:"dim",rows:[]});
     let colB = !bOver ? (rowsB.length?{type:"rows",rows:rowsB}:{type:"empty",rows:[]})
                       : (!shownB?{type:"closing",rows:[]}:{type:"dim",rows:[]});
-    const meaningfulA = colA.type==="rows"||colA.type==="closing";
-    const meaningfulB = colB.type==="rows"||colB.type==="closing";
-    if(!meaningfulA && !meaningfulB) continue;            // skip — nothing to reveal here
     if(colA.type==="closing") shownA=true;
     if(colB.type==="closing") shownB=true;
-    plan.push({ n, yA, yB, teamA:eA?eA.t:null, teamB:eB?eB.t:null, aOver, bOver, colA, colB });
+    // a "filler" season has no reveal rows and no closing card on either side
+    const hasRows = rowsA.length>0 || rowsB.length>0;
+    const hasClosing = colA.type==="closing" || colB.type==="closing";
+    const bothEmpty = !hasRows && !hasClosing;
+    plan.push({ n, yA, yB, teamA:eA?eA.t:null, teamB:eB?eB.t:null, aOver, bOver, colA, colB, bothEmpty });
   }
   return plan;
-}
-/* number of reveal slots (rows crossing the trigger) = pacing unit */
-function countAnchors(pA,pB){
-  let c=0; for(const pb of buildPlan(pA,pB)) c+=Math.max(pb.colA.rows.length, pb.colB.rows.length);
-  return c;
 }
 /* every teammate that will appear (for preload) */
 function involvedNames(pA,pB){
@@ -311,36 +328,57 @@ function marqueeAccolades(aw){
   return items.slice(0,2).map(a => (aw[a]>1 ? `${aw[a]}× ` : "") + awLabel(a)).join(" · ");
 }
 
-/* ---------- pacing (anchor-driven: equal time per reveal slot) ---------- */
-function pacing(slotCount){
-  const durSel = $("dur").value;
-  const manual = parseFloat($("perItem").value);
+/* ---------- pacing (anchor-driven; empty/career-over seasons get minimal time) ----------
+   A waypoint is created per reveal slot ('beat'), per career-over card ('close'),
+   and per both-empty season ('filler'). The first waypoint is reached after LEAD
+   (cold open on Season 1); each later one adds time by its kind. */
+function buildSchedule(plan, perItem){
+  const wps = [];
+  plan.forEach((pb,bi)=>{
+    const sc = Math.max(pb.colA.rows.length, pb.colB.rows.length);
+    if(sc>0){ for(let i=0;i<sc;i++) wps.push({ kind:"beat", bi, ai:i }); }
+    else if(pb.colA.type==="closing" || pb.colB.type==="closing") wps.push({ kind:"close", bi });
+    else wps.push({ kind:"filler", bi });
+  });
+  let t = 0;
+  wps.forEach((w,i)=>{
+    t += (i===0 ? LEAD_SEC : w.kind==="beat" ? perItem : w.kind==="close" ? CLOSE_SEC : FILLER_SEC);
+    w.time = t;
+  });
+  const scrollSec = (wps.length ? wps[wps.length-1].time : LEAD_SEC) + SETTLE_SEC;
+  return { wps, scrollSec };
+}
+function pacing(plan){
+  const beats = plan.reduce((a,pb)=>a+Math.max(pb.colA.rows.length, pb.colB.rows.length), 0);
+  const durSel = $("dur").value, manual = parseFloat($("perItem").value);
   let perItem;
   if(!isNaN(manual) && manual>0)      perItem = manual;
   else if(durSel === "manual")        perItem = 0.7;
   else { const target = durSel==="auto" ? 60 : parseFloat(durSel);
-         perItem = clamp(target / Math.max(slotCount,1), 0.35, 1.2); }
-  const M = Math.max(slotCount,1);
-  const scrollSec = LEAD_SEC + (M-1)*perItem + SETTLE_SEC;      // no dead head/tail
+         perItem = clamp(target / Math.max(beats,1), 0.35, 1.2); }
+  const { scrollSec } = buildSchedule(plan, perItem);
   const total = INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC;
-  return { perItem, scrollSec, total };
+  return { perItem, scrollSec, total, beats };
 }
 function getOpts(){
   const [w,h] = $("res").value.split("x").map(Number);
   return { w, h, fps: parseInt($("fps").value, 10),
-           accent: $("accent").value || "#3b82f6", title: $("title").value || "" };
+           accent: $("accent").value || "#3b82f6", title: $("title").value || "",
+           explainer: $("explainer").value || "" };
 }
 function refreshMeta(){
   const pA = BY_NAME[$("pa").value], pB = BY_NAME[$("pb").value];
   if(!pA || !pB){ $("matchmeta").innerHTML = "Pick two players."; $("timeline").textContent=""; return; }
-  const slots = countAnchors(pA,pB);
-  const { perItem, scrollSec, total } = pacing(slots);
+  const plan = buildPlan(pA,pB);
+  const fillers = plan.filter(pb=>pb.bothEmpty).length;
+  const { perItem, scrollSec, total, beats } = pacing(plan);
   $("matchmeta").innerHTML =
     `<b>${pA.name}</b> — ${pA.score} · ${pA.perSeason}/season · ${pA.seasons} seasons · ${pA.rings}🏆<br>`+
     `<b>${pB.name}</b> — ${pB.score} · ${pB.perSeason}/season · ${pB.seasons} seasons · ${pB.rings}🏆`;
   $("timeline").innerHTML =
-    `<span class="pill">${slots} reveals</span>`+
+    `<span class="pill">${beats} reveals</span>`+
     `<span class="pill">${perItem.toFixed(2)}s each</span>`+
+    `<span class="pill">${plan.length} seasons (${fillers} empty)</span>`+
     `<span class="pill">scroll ${scrollSec.toFixed(1)}s</span>`+
     `<span class="pill"><b>≈ ${total.toFixed(1)}s total</b></span>`+
     `<span class="pill">intro ${INTRO_SEC}s · trans ${TRANS_SEC}s · finale ${FINAL_SEC}s</span>`;
@@ -360,28 +398,36 @@ function buildGeom(opts){
   return { W,H,S, sbH, viewportTop, viewportH, fireLineY,
            leftColX0,leftColX1,rightColX0,rightColX1, rowH, headerH, blockGap, chipR };
 }
-/* lay the plan out in document space; collect anchors (reveal slots) */
+/* lay the plan out in document space; collect anchors (reveal slots).
+   Each block gets a kind: 'content' (>=1 reveal), 'close' (career-over card
+   only), or 'filler' (both-empty season — slim, scrolled past fast). */
 function buildDocument(plan, geom){
   const { rowH, headerH, blockGap, viewportTop, fireLineY } = geom;
   const fireOffset = fireLineY - viewportTop;
   const blocks=[], rows=[], anchors=[]; let docY=0;
   for(const pb of plan){
     const rowsA = pb.colA.rows, rowsB = pb.colB.rows;
-    const slots = t => t==="rows" ? 0 : t==="dim" ? 0 : 1;       // closing/empty occupy 1 slim slot
+    const slotCount = Math.max(rowsA.length, rowsB.length);
+    const hasClosing = pb.colA.type==="closing" || pb.colB.type==="closing";
+    const kind = slotCount>0 ? "content" : hasClosing ? "close" : "filler";
+    const slots = t => t==="rows" ? 0 : t==="dim" ? 0 : 1;       // closing/empty occupy 1 slot
     const slotsA = pb.colA.type==="rows" ? rowsA.length : slots(pb.colA.type);
     const slotsB = pb.colB.type==="rows" ? rowsB.length : slots(pb.colB.type);
-    const bodyH = Math.max(slotsA, slotsB, 1) * rowH;
+    const bodyH = kind==="filler" ? rowH*0.7 : Math.max(slotsA, slotsB, 1) * rowH;
     const top = docY, bodyTop = top + headerH;
-    const slotCount = Math.max(rowsA.length, rowsB.length);
+    const blockAnchors = [];
     for(let i=0;i<slotCount;i++){
       const docCenter = bodyTop + i*rowH + rowH/2;
-      const an = { docY:docCenter, fire:docCenter-fireOffset, rows:[], time:0 };
+      const an = { docY:docCenter, fire:docCenter-fireOffset, rows:[], time:0, side:null };
       const rA=rowsA[i], rB=rowsB[i];
       if(rA){ rA.centerDoc=docCenter; rA.fire=an.fire; an.rows.push(rA); rows.push(rA); }
       if(rB){ rB.centerDoc=docCenter; rB.fire=an.fire; an.rows.push(rB); rows.push(rB); }
-      anchors.push(an);
+      let s=null,mp=-1; for(const r of an.rows) if(r.points>mp){ mp=r.points; s=r.side; } an.side=s;
+      anchors.push(an); blockAnchors.push(an);
     }
-    blocks.push({ ...pb, top, headerH, bodyH, height: headerH + bodyH + blockGap });
+    const centerDoc = bodyTop + bodyH/2;
+    blocks.push({ ...pb, top, headerH, bodyH, height: headerH + bodyH + blockGap,
+                  kind, anchors:blockAnchors, centerFire: centerDoc - fireOffset });
     docY += headerH + bodyH + blockGap;
   }
   return { blocks, rows, anchors, docHeight:docY };
@@ -451,29 +497,43 @@ function gapPop(R){                    // GAP pill pops on every reveal
   for(const t of R.anchorTimes){ const d=R.ts-t; if(d>=0) best=Math.max(best, clamp(1-d/0.3,0,1)); }
   return best;
 }
+/* Explicit vertical layout: headshot, then name (full width, never clipped),
+   then score, with safe gaps at all resolutions. Each score keeps its own side
+   color; the leader is full opacity + slight scale + a small triangle, the
+   trailer is dimmed. GAP pill centered. No persistent question kicker. */
 function drawTopScoreboard(ctx, R, valA, valB){
-  const G=R.geom, S=G.S, W=G.W, sbH=G.sbH, accent=R.accent;
+  const G=R.geom, S=G.S, W=G.W, sbH=G.sbH;
   ctx.fillStyle = COL.bg; ctx.fillRect(0,0,W,sbH);                  // opaque band
   const grad = ctx.createLinearGradient(0,0,W,0);
   grad.addColorStop(0,"rgba(59,130,246,0)"); grad.addColorStop(.5,"rgba(120,140,180,.55)"); grad.addColorStop(1,"rgba(239,106,90,0)");
   ctx.fillStyle = grad; ctx.fillRect(0, sbH-Math.max(1,S*2), W, Math.max(1,S*2));
-  const r = sbH*0.23, headCY = sbH*0.30, leftX = W*0.19, rightX = W*0.81;
+  const r = sbH*0.205, headCY = sbH*0.25, leftX = W*0.20, rightX = W*0.80;
   const aLead = valA>valB+1e-9, bLead = valB>valA+1e-9;
-  drawSbSide(ctx, R, leftX,  headCY, r, R.imgA, R.pA.name, valA, aLead?accent:COL.sec, "A", sidePulse(R,"A"));
-  drawSbSide(ctx, R, rightX, headCY, r, R.imgB, R.pB.name, valB, bLead?accent:COL.sec, "B", sidePulse(R,"B"));
-  drawGapPill(ctx, R, W/2, sbH*0.50, Math.abs(valA-valB));
+  drawSbSide(ctx, R, leftX,  headCY, r, R.imgA, R.pA.name, valA, R.accent,    "A", aLead, sidePulse(R,"A"));
+  drawSbSide(ctx, R, rightX, headCY, r, R.imgB, R.pB.name, valB, SIDE_B_TINT, "B", bLead, sidePulse(R,"B"));
+  drawGapPill(ctx, R, W/2, sbH*0.42, Math.abs(valA-valB));
 }
-function drawSbSide(ctx, R, cx, cy, r, img, name, val, numColor, side, pulse){
-  const S = R.geom.S;
+function drawSbSide(ctx, R, cx, cy, r, img, name, val, sideColor, side, lead, pulse){
+  const G=R.geom, S=G.S, W=G.W, sbH=G.sbH, dim = lead ? 1 : 0.55;
   drawHead(ctx, img, cx, cy, r, R.activeSide===side?R.accent:"#2a3142", name);
+  ctx.save(); ctx.globalAlpha = dim;
+  // name — fit to its half so it never clips or runs under the circle
   ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-  ctx.fillStyle = COL.text; ctx.font = `700 ${S*20}px 'DM Sans',sans-serif`;
-  ctx.save(); fitText(ctx, name, r*3.4); ctx.fillText(name, cx, cy + r + S*22); ctx.restore();
-  ctx.save();
-  ctx.translate(cx, cy + r + S*66); ctx.scale(1+0.22*pulse, 1+0.22*pulse);
-  ctx.fillStyle = numColor; ctx.font = numFont(S*58);
+  ctx.fillStyle = COL.text; ctx.font = `700 ${S*19}px 'DM Sans',sans-serif`;
+  ctx.save(); fitText(ctx, name, W*0.40); ctx.fillText(name, cx, sbH*0.60); ctx.restore();
+  // score (own side color, always)
+  const scoreY = sbH*0.92, sc = (lead?1.06:1)*(1+0.22*pulse);
+  ctx.save(); ctx.translate(cx, scoreY); ctx.scale(sc, sc);
+  ctx.fillStyle = sideColor; ctx.font = numFont(S*46);
   ctx.textAlign="center"; ctx.textBaseline="alphabetic"; ctx.fillText(fmt1(val), 0, 0);
   ctx.restore();
+  ctx.restore();
+  if(lead){                                   // leader triangle, full opacity
+    ctx.font = numFont(S*46); const tw = ctx.measureText(fmt1(val)).width*(1.06);
+    const ax = cx - tw/2 - S*18, ay = scoreY - S*13;
+    ctx.fillStyle = sideColor;
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+S*13,ay); ctx.lineTo(ax+S*6.5,ay-S*12); ctx.closePath(); ctx.fill();
+  }
 }
 function drawGapPill(ctx, R, cx, cy, gap){
   const S=R.geom.S, pop=gapPop(R), txt=fmt1(gap);
@@ -490,10 +550,8 @@ function drawGapPill(ctx, R, cx, cy, gap){
   ctx.textAlign="right"; ctx.fillStyle = COL.text; ctx.font = numFont(S*30); ctx.fillText(txt, cx+w/2-padX, cy+S*1);
   ctx.restore();
 }
-function drawChrome(ctx, R){
+function drawChrome(ctx, R){          // wordmark only — the question lives on the intro
   const { W,H,S } = R.geom;
-  if(R.title){ ctx.textAlign="center"; ctx.textBaseline="top";
-    ctx.fillStyle = COL.sec; ctx.font = nameFont(S*15); ctx.fillText(R.title.toUpperCase(), W/2, S*6); }
   ctx.textAlign="right"; ctx.textBaseline="bottom";
   ctx.fillStyle = R.accent; ctx.font = `800 ${S*16}px 'DM Sans',sans-serif`;
   ctx.fillText("HOOPSMATIC", W - S*16, H - S*14);
@@ -523,6 +581,13 @@ function drawScrollFrame(ctx, R, scrollPx, valA, valB){
     if(screenTop > G.H || screenTop + block.height < G.viewportTop) continue;
     drawHeader(ctx, R, block, screenTop);
     const bodyTop = screenTop + block.headerH;
+    if(block.kind==="filler"){
+      const cy = bodyTop + block.bodyH/2, a = edgeAlpha(G, cy-G.rowH/2, G.rowH)*0.5;
+      if(a>0.01){ ctx.save(); ctx.globalAlpha=a; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillStyle="#5a6172"; ctx.font=nameFont(G.S*15);
+        ctx.fillText("no decorated teammates", G.W/2, cy); ctx.restore(); }
+      continue;
+    }
     drawColumn(ctx, R, block, "A", G.leftColX0,  G.leftColX1,  bodyTop, scrollPx);
     drawColumn(ctx, R, block, "B", G.rightColX0, G.rightColX1, bodyTop, scrollPx);
   }
@@ -534,7 +599,10 @@ function drawHeader(ctx, R, block, screenTop){
   const G=R.geom, S=G.S, a=edgeAlpha(G, screenTop, block.headerH);
   if(a<=0.01) return;
   ctx.save(); ctx.globalAlpha=a;
-  const cy = screenTop + block.headerH*0.46;
+  // contained band with a thin top border
+  ctx.fillStyle = "#11141d"; ctx.fillRect(0, screenTop, G.W, block.headerH);
+  ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(0, screenTop, G.W, Math.max(1,S*1.5));
+  const cy = screenTop + block.headerH*0.50;
   ctx.textAlign="center"; ctx.textBaseline="middle";
   ctx.fillStyle = COL.text; ctx.font = `800 ${S*22}px 'DM Sans',sans-serif`;
   ctx.fillText(`SEASON ${block.n}`, G.W/2, cy);
@@ -542,14 +610,14 @@ function drawHeader(ctx, R, block, screenTop){
   if(!block.aOver && block.colA.type!=="dim"){
     ctx.fillStyle=R.accent; ctx.textAlign="left";
     const t=`${block.yA}${block.teamA?" · "+teamFull(block.teamA):""}`;
-    ctx.save(); fitText(ctx,t,G.W*0.30); ctx.fillText(t,G.leftColX0,cy); ctx.restore();
+    ctx.save(); fitText(ctx,t,G.leftColX1-G.leftColX0); ctx.fillText(t,G.leftColX0,cy); ctx.restore();
   }
   if(!block.bOver && block.colB.type!=="dim"){
     ctx.fillStyle=SIDE_B_TINT; ctx.textAlign="right";
     const t=`${block.yB}${block.teamB?" · "+teamFull(block.teamB):""}`;
-    ctx.save(); fitText(ctx,t,G.W*0.30); ctx.fillText(t,G.rightColX1,cy); ctx.restore();
+    ctx.save(); fitText(ctx,t,G.rightColX1-G.rightColX0); ctx.fillText(t,G.rightColX1,cy); ctx.restore();
   }
-  const ry = screenTop + block.headerH - 1;
+  const ry = screenTop + block.headerH - Math.max(1,S*1.5);
   const grad = ctx.createLinearGradient(0,0,G.W,0);
   grad.addColorStop(0,"rgba(255,255,255,0)"); grad.addColorStop(.5,"rgba(255,255,255,.16)"); grad.addColorStop(1,"rgba(255,255,255,0)");
   ctx.fillStyle = grad; ctx.fillRect(0, ry, G.W, Math.max(1,S*1.5));
@@ -648,13 +716,15 @@ function drawIntro(ctx, R, prog){
   ctx.fillText(R.pA.rings>0?`${R.pA.rings} ${R.pA.rings>1?"rings":"ring"}`:"no rings", leftX, cy+r+S*70);
   ctx.fillText(R.pB.rings>0?`${R.pB.rings} ${R.pB.rings>1?"rings":"ring"}`:"no rings", rightX, cy+r+S*70);
   ctx.textAlign="center";
-  ctx.fillStyle=COL.sec; ctx.font=`700 ${S*22}px 'DM Sans',sans-serif`;
-  ctx.fillText("TEAMMATES SCORE", W/2, H*0.70);
-  if(R.title){ ctx.fillStyle=COL.text; ctx.font=nameFont(S*22);
-    ctx.save(); fitText(ctx,R.title,W*0.8); ctx.fillText(R.title, W/2, H*0.745); ctx.restore(); }
-  ctx.fillStyle=COL.sec; ctx.font=numFont(S*34);
-  ctx.fillText("0.0", leftX, H*0.83); ctx.fillText("0.0", rightX, H*0.83);
-  ctx.fillStyle=R.accent; ctx.font=numFont(S*40); ctx.fillText("0.0", W/2, H*0.832);
+  ctx.fillStyle=COL.sec; ctx.font=`700 ${S*20}px 'DM Sans',sans-serif`;
+  ctx.fillText("TEAMMATES SCORE", W/2, H*0.66);
+  if(R.title){ ctx.fillStyle=COL.text; ctx.font=`700 ${S*26}px 'DM Sans',sans-serif`;
+    ctx.save(); fitText(ctx,R.title,W*0.84); ctx.fillText(R.title, W/2, H*0.71); ctx.restore(); }
+  if(R.explainer){ ctx.fillStyle=COL.sec; ctx.font=nameFont(S*19);
+    ctx.save(); fitText(ctx,R.explainer,W*0.86); ctx.fillText(R.explainer, W/2, H*0.755); ctx.restore(); }
+  ctx.fillStyle=COL.sec; ctx.font=numFont(S*32);
+  ctx.fillText("0.0", leftX, H*0.85); ctx.fillText("0.0", rightX, H*0.85);
+  ctx.fillStyle=R.accent; ctx.font=numFont(S*36); ctx.fillText("0.0", W/2, H*0.852);
   ctx.globalAlpha=1;
 }
 function drawFinalCard(ctx, R, alpha){
@@ -677,10 +747,23 @@ function drawFinalCard(ctx, R, alpha){
   ctx.fillStyle=aWin?COL.sec:R.accent; ctx.font=numFont(S*54); ctx.fillText(fmtPts(finalB),rightX,headCY+r+S*90);
   ctx.fillStyle=COL.sec; ctx.font=nameFont(S*16); ctx.fillText("GAP", W/2, headCY-r*0.18);
   ctx.fillStyle=R.accent; ctx.font=numFont(S*40); ctx.fillText(fmt1(Math.abs(finalA-finalB)), W/2, headCY+r*0.4);
-  ctx.fillStyle=COL.text; ctx.font=`800 ${S*36}px 'DM Sans',sans-serif`;
-  ctx.save(); fitText(ctx,`${winner.name} had more help`,W*0.86); ctx.fillText(`${winner.name} had more help`,W/2,H*0.45); ctx.restore();
-  ctx.fillStyle=COL.sec; ctx.font=nameFont(S*18);
-  ctx.fillText(`${winner.perSeason}/season  vs  ${other.perSeason}/season`, W/2, H*0.485);
+  // Verdict — career total leader and per-season leader, stated explicitly so a
+  // name is never shown above the other player's better number.
+  const careerLeader = winner;                       // by total score (finalA>=finalB)
+  const psA = A.perSeason, psB = B.perSeason, psAled = psA >= psB;
+  const psLeader = psAled ? A : B, psLead = psAled ? psA : psB, psOther = psAled ? psB : psA;
+  if(careerLeader === psLeader){
+    ctx.fillStyle=COL.text; ctx.font=`800 ${S*34}px 'DM Sans',sans-serif`; ctx.textAlign="center";
+    ctx.save(); fitText(ctx,`${careerLeader.name} had more help, overall and per season`,W*0.88);
+    ctx.fillText(`${careerLeader.name} had more help, overall and per season`,W/2,H*0.455); ctx.restore();
+  } else {
+    ctx.fillStyle=COL.text; ctx.font=`800 ${S*30}px 'DM Sans',sans-serif`; ctx.textAlign="center";
+    ctx.save(); fitText(ctx,`${careerLeader.name} had more help overall`,W*0.88);
+    ctx.fillText(`${careerLeader.name} had more help overall`,W/2,H*0.44); ctx.restore();
+    ctx.fillStyle=COL.sec; ctx.font=`600 ${S*20}px 'DM Sans',sans-serif`;
+    ctx.save(); fitText(ctx,`${psLeader.name} had more help per season · ${psLead.toFixed(2)} vs ${psOther.toFixed(2)}`,W*0.88);
+    ctx.fillText(`${psLeader.name} had more help per season · ${psLead.toFixed(2)} vs ${psOther.toFixed(2)}`,W/2,H*0.485); ctx.restore();
+  }
   drawTopTeammates(ctx, R, A, W*0.06, W*0.47, H*0.55, R.accent);
   drawTopTeammates(ctx, R, B, W*0.53, W*0.94, H*0.55, SIDE_B_TINT);
   ctx.textAlign="right"; ctx.textBaseline="bottom";
@@ -722,9 +805,8 @@ async function prepare(){
   const geom = buildGeom(opts);
   const plan = buildPlan(pA, pB);
   const doc = buildDocument(plan, geom);
-  if(!doc.anchors.length) throw new Error("No decorated teammates to show for this matchup.");
-  const M = doc.anchors.length;
-  const { perItem, scrollSec } = pacing(M);
+  if(!doc.rows.length) throw new Error("No decorated teammates to show for this matchup.");
+  const { perItem, scrollSec } = pacing(plan);
 
   $("status").textContent = "Loading headshots…";
   const heads = await preloadHeads(involvedNames(pA,pB), (d,n)=>{
@@ -740,20 +822,37 @@ async function prepare(){
   const finalF = Math.round(FINAL_SEC*fps);
   const total = introF + scrollF + transF + finalF;
 
-  // anchor reveal times + per-side big-reveal crossings (for pulses)
-  const anchorTimes=[], bigCross={A:[],B:[]};
-  doc.anchors.forEach((an,k)=>{ an.time = LEAD_SEC + k*perItem; anchorTimes.push(an.time);
-    for(const r of an.rows){ r.crossTime = an.time; if(r.points>=4) bigCross[r.side].push(an.time); } });
-
-  const band = geom.rowH, settleAdvance = geom.rowH*1.3, AN = doc.anchors;
+  // Build the scroll timeline: one waypoint per reveal slot / career-over card /
+  // empty season. Camera reaches each waypoint's scrollPx at its scheduled time.
+  const { wps } = buildSchedule(plan, perItem);
+  const tl = [], anchorTimes=[], bigCross={A:[],B:[]};
+  for(const w of wps){
+    const block = doc.blocks[w.bi];
+    if(w.kind==="beat"){
+      const an = block.anchors[w.ai];
+      an.time = w.time;
+      for(const r of an.rows){ r.crossTime = w.time; if(r.points>=4) bigCross[r.side].push(w.time); }
+      anchorTimes.push(w.time);
+      tl.push({ time:w.time, scrollPx:an.fire, beat:true, side:an.side });
+    } else {
+      tl.push({ time:w.time, scrollPx:block.centerFire, beat:false, side:null });
+    }
+  }
+  const band = geom.rowH, settleAdvance = geom.rowH*1.3;
   const lerp = (a,b,t)=>a+(b-a)*t;
   const easeIO = t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
   function scrollPxAt(ts){
-    if(ts <= LEAD_SEC) return lerp(AN[0].fire - band, AN[0].fire, easeIO(clamp(ts/LEAD_SEC,0,1)));
-    const tA = ts - LEAD_SEC, lastT = (M-1)*perItem;
-    if(tA >= lastT) return lerp(AN[M-1].fire, AN[M-1].fire + settleAdvance, clamp((tA-lastT)/SETTLE_SEC,0,1));
-    const k = Math.min(M-2, Math.floor(tA/perItem)), segFrac = (tA - k*perItem)/perItem;
-    return lerp(AN[k].fire, AN[k+1].fire, easeIO(segFrac));
+    if(!tl.length) return 0;
+    const first = tl[0];
+    if(ts <= first.time) return lerp(first.scrollPx - band, first.scrollPx, easeIO(clamp(ts/first.time,0,1)));
+    for(let i=0;i<tl.length-1;i++){
+      if(ts <= tl[i+1].time){
+        const f = (ts - tl[i].time)/(tl[i+1].time - tl[i].time);
+        return lerp(tl[i].scrollPx, tl[i+1].scrollPx, easeIO(f));
+      }
+    }
+    const last = tl[tl.length-1];
+    return lerp(last.scrollPx, last.scrollPx + settleAdvance, clamp((ts-last.time)/SETTLE_SEC,0,1));
   }
   const scrollEndPx = scrollPxAt(scrollSec);
   function tally(scrollPx){
@@ -764,12 +863,11 @@ async function prepare(){
   }
   function activeAt(ts){
     let best=null, bd=1e9;
-    for(const an of AN){ const d=Math.abs(ts-an.time); if(d<bd){ bd=d;
-      let s=null,mp=-1; for(const r of an.rows) if(r.points>mp){ mp=r.points; s=r.side; } best=s; } }
+    for(const w of tl){ if(!w.beat) continue; const d=Math.abs(ts-w.time); if(d<bd){ bd=d; best=w.side; } }
     return bd<0.4 ? best : null;
   }
 
-  const R = { geom, accent:opts.accent, title:opts.title, pA, pB, doc, heads,
+  const R = { geom, accent:opts.accent, title:opts.title, explainer:opts.explainer, pA, pB, doc, heads,
               imgA:heads[pA.name]||null, imgB:heads[pB.name]||null,
               agg:{ [pA.name]:aggregate(pA), [pB.name]:aggregate(pB) },
               anchorTimes, bigCross, ts:null, activeSide:null };
@@ -794,7 +892,7 @@ async function prepare(){
   }
 
   return { opts, fps, total, drawFrame, cv,
-           totalSec: INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC, rows: M };
+           totalSec: INTRO_SEC + scrollSec + TRANS_SEC + FINAL_SEC, rows: doc.rows.length };
 }
 
 
@@ -895,7 +993,7 @@ function setBusy(b){ ["preview-btn","mp4-btn","webm-btn"].forEach(id=>$(id).disa
 $("preview-btn").onclick = runPreview;
 $("mp4-btn").onclick = renderMP4;
 $("webm-btn").onclick = renderWebM;
-["pa","pb","res","fps","dur","perItem","title","accent"].forEach(id=>{
+["pa","pb","res","fps","dur","perItem","title","explainer","accent"].forEach(id=>{
   $(id).addEventListener("change", ()=>{ refreshMeta(); document.documentElement.style.setProperty("--accent", $("accent").value); });
   $(id).addEventListener("input",  ()=>{ if(id==="accent") document.documentElement.style.setProperty("--accent", $("accent").value); });
 });
