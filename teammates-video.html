@@ -156,7 +156,7 @@ const AWARD_LABEL = {
   "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
   "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
 };
-const INTRO_SEC = 2.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4;
+const INTRO_SEC = 1.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4;
 
 let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={};
 let granularity = "accolade";
@@ -336,12 +336,13 @@ function marqueeAccolades(aw){
    clamped 0.5–1.2s; a manual "seconds per reveal" override sets it directly. */
 function flushSteps(doc, geom){
   // extra constant-height steps needed so every scoring row's top scrolls up
-  // under the scoreboard band (scrollPx must reach the last row's top).
-  const fireOffset = geom.fireLineY - geom.viewportTop;
+  // under the scoreboard band (scrollPx must reach the last row's top). With the
+  // flush-start offset the document already scrolls far enough, so this is
+  // usually 0 now.
   const rowTops = doc.elements.filter(e=>e.type==="row").map(e=>e.top);
   if(!rowTops.length) return 0;
   const maxRowTop = Math.max(...rowTops);
-  const lastRest = doc.elements.length ? doc.elements[doc.elements.length-1].restScroll : -fireOffset;
+  const lastRest = doc.elements.length ? doc.elements[doc.elements.length-1].restScroll : -geom.coldGap;
   return Math.max(0, Math.ceil((maxRowTop - lastRest) / geom.rowH));
 }
 function pacing(plan, geom){
@@ -395,7 +396,8 @@ function buildGeom(opts){
   const leftColX0 = W*0.04,  leftColX1 = W*0.49;
   const rightColX0 = W*0.51, rightColX1 = W*0.96;
   const rowH = S*80, headerH = S*66, chipR = rowH*0.32;
-  return { W,H,S, sbH, viewportTop, viewportH, fireLineY,
+  const coldGap = S*20;       // gap under the scoreboard at scroll start (Season 1 flush)
+  return { W,H,S, sbH, viewportTop, viewportH, fireLineY, coldGap,
            leftColX0,leftColX1,rightColX0,rightColX1, rowH, headerH, chipR };
 }
 /* lay the plan out in document space AND emit a flat metronome sequence.
@@ -404,12 +406,12 @@ function buildGeom(opts){
    so a beat's eased step advances by exactly the element's own height; each
    element's rest position aligns its bottom to the trigger line. */
 function buildDocument(plan, geom){
-  const { rowH, headerH, viewportTop, fireLineY } = geom;
-  const fireOffset = fireLineY - viewportTop;
+  const { rowH, headerH, coldGap } = geom;
   const blocks=[], rows=[], elements=[]; let docY=0;
-  // each element's rest scroll position aligns its bottom to the trigger line,
-  // so the per-beat step equals exactly the element's own height.
-  const push = el => { el.restScroll = (el.top + el.height) - fireOffset; elements.push(el); return el; };
+  // Rest positions are offset by coldGap (not the trigger offset) so that at the
+  // first scroll frame Season 1 sits flush under the scoreboard. The per-beat
+  // step still equals exactly the element's own height.
+  const push = el => { el.restScroll = (el.top + el.height) - coldGap; elements.push(el); return el; };
   for(const pb of plan){
     const rowsA = pb.colA.rows, rowsB = pb.colB.rows;
     const slotCount = Math.max(rowsA.length, rowsB.length);
@@ -716,12 +718,12 @@ function drawIntro(ctx, R, prog){
   const G=R.geom, S=G.S, W=G.W, H=G.H;
   drawBackground(ctx, R);
   drawChrome(ctx, R);
-  const e = easeOutCubic(clamp(prog/0.45,0,1));
+  const e = easeOutCubic(clamp(prog/0.30,0,1));      // quicker fade-in for the ~1.5s intro
   ctx.globalAlpha = e;
   const r = Math.min(W,H)*0.15, leftX=W*0.27, rightX=W*0.73, cy=H*0.37;
   drawHead(ctx, R.imgA, leftX, cy, r, null, R.pA.name);
   drawHead(ctx, R.imgB, rightX, cy, r, null, R.pB.name);
-  const ringP = easeOutCubic(clamp(prog/0.4,0,1));
+  const ringP = easeOutCubic(clamp(prog/0.28,0,1));  // sped-up ring draw-in
   ringArc(ctx, leftX, cy, r, R.accent, ringP);
   ringArc(ctx, rightX, cy, r, SIDE_B_TINT, ringP);
   ctx.textAlign="center"; ctx.textBaseline="middle";
@@ -849,8 +851,7 @@ async function prepare(){
   const easeIOinv = u => u<=0.5 ? Math.sqrt(u/2) : 1 - Math.sqrt((1-u)/2);
   const lerp = (a,b,t)=>a+(b-a)*t;
   const stepDur = STEP_FRAC*beat;
-  const fireOffset = geom.fireLineY - geom.viewportTop;
-  const initialScroll = -fireOffset;                 // Season-1 header sits at the trigger at t=0
+  const initialScroll = -geom.coldGap;               // Season-1 header sits flush under the scoreboard at t=0
 
   // unified step list: real elements then flush steps (monotonic rest positions)
   const steps = [];
