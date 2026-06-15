@@ -25,6 +25,7 @@ SCORES = {
     "All-Rookie Second Team": 0.125,
 }
 ALLNBA = {"All-NBA First Team", "All-NBA Second Team", "All-NBA Third Team"}
+ALLDEF = {"All-Defensive First Team", "All-Defensive Second Team"}
 AWARD_LABEL = {
     "Most Valuable Player":"MVP","All-NBA First Team":"All-NBA 1st Team",
     "All-NBA Second Team":"All-NBA 2nd Team","All-NBA Third Team":"All-NBA 3rd Team",
@@ -96,12 +97,19 @@ def build_players(awards_by, rings, rosters, pseasons, pyears, title_years):
                 if mate==p: continue
                 aws=awards_by.get((mate,yr))
                 if not aws: continue
-                mp=round(sum(SCORES[a] for a in aws),3); spts+=mp
+                sset=set(aws); has_mvp="Most Valuable Player" in sset; has_dpoy="Defensive Player of the Year" in sset
+                ordered=sorted(aws,key=lambda x:-SCORES[x]); sp=[]
+                for a in ordered:
+                    pts=SCORES[a]
+                    if has_mvp and a in ALLNBA: pts=0          # MVP already covers the All-NBA nod
+                    elif has_dpoy and a in ALLDEF: pts=0       # DPOY already covers All-Defensive
+                    sp.append(pts)
+                mp=round(sum(sp),3); spts+=mp
                 for a in aws:
                     if a=="Most Valuable Player": cM+=1
                     elif a in ALLNBA: cN+=1
                     elif a=="All-Star": cS+=1
-                mates.append({"n":mate,"a":sorted(aws,key=lambda x:-SCORES[x]),"p":mp})
+                mates.append({"n":mate,"a":ordered,"sp":[round(x,3) for x in sp],"p":mp})
             if mates:
                 mates.sort(key=lambda m:-m["p"])
                 detail.append({"y":yr,"t":t,"pts":round(spts,3),"mates":mates}); total+=spts

@@ -123,6 +123,7 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .inst .who a{font-weight:600;color:var(--text)}
 .inst .who .tm{font-size:.74rem;color:var(--text-secondary);margin-left:.5rem}
 .inst .pts{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.78rem;color:var(--accent)}
+.inst.supp{opacity:.5}.inst.supp .pts{color:var(--text-secondary)}
 
 .contrib{display:flex;flex-direction:column;gap:.55rem}
 .crow{display:grid;grid-template-columns:13rem 1fr 3.4rem;align-items:center;gap:.7rem}
@@ -235,7 +236,7 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 <body>
 <div class="container" id="container">
   <div id="view"><div class="loading">Loading every roster in NBA history…</div></div>
-  <div class="foot">Teammates Score adds up the accolades of every teammate a player shared a season with: MVP &amp; Finals MVP 10, All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125.</div>
+  <div class="foot">Teammates Score adds up the accolades of every teammate a player shared a season with: MVP &amp; Finals MVP 10, All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125. A teammate's MVP already covers his All-NBA selection that season (and DPOY covers All-Defensive), so those aren't counted twice.</div>
 </div>
 
 <div id="cardModal" onclick="if(event.target===this)closeCard()">
@@ -296,11 +297,12 @@ function accSummary(awObj,limit=4){
 function bestSeason(p){let b=null;for(const s of p.detail)if(!b||s.pts>b.pts)b=s;return b;}
 function byAward(p){
   const g={};
-  for(const s of p.detail)for(const mate of s.mates)for(const a of mate.a)(g[a]=g[a]||[]).push({n:mate.n,y:s.y,t:s.t});
+  for(const s of p.detail)for(const mate of s.mates)mate.a.forEach((a,i)=>(g[a]=g[a]||[]).push({n:mate.n,y:s.y,t:s.t,p:mate.sp?mate.sp[i]:SCORES[a]}));
   for(const a in g)g[a].sort((x,y)=>x.y-y.y||x.n.localeCompare(y.n));
   return g;
 }
 function slugOf(name){const p=BY_NAME[name];return p?p.slug:'';}
+function suppNote(a){return ALLNBA.has(a)?'counted under MVP':(a==='All-Defensive First Team'||a==='All-Defensive Second Team')?'counted under DPOY':'';}
 
 /* era */
 let ERAS=[];
@@ -442,8 +444,9 @@ function renderPlayer(slug){
     <div class="section"><h2>Every teammate accolade</h2><div class="hint">All ${totalAcc} accolades won by teammates while sharing a roster, most to least valuable, oldest to newest within each.</div>`;
   let any=false;
   for(const a of AWARD_ORDER){const inst=g[a];if(!inst||!inst.length)continue;any=true;
-    html+=`<div class="grid-award"><div class="grid-award-h">${esc(awLabel(a))}<span class="wt">${fmt(SCORES[a])} pts each</span><span class="ct">${inst.length} · ${fmt(inst.length*SCORES[a])} pts</span></div>`;
-    for(const x of inst)html+=`<div class="inst"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();event.stopPropagation();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}</span></span><span class="pts">+${fmt(SCORES[a])}</span></div>`;
+    const sub=inst.reduce((n,x)=>n+x.p,0);
+    html+=`<div class="grid-award"><div class="grid-award-h">${esc(awLabel(a))}<span class="wt">${fmt(SCORES[a])} pts each</span><span class="ct">${inst.length} · ${fmt(sub)} pts</span></div>`;
+    for(const x of inst){const z=x.p===0;html+=`<div class="inst${z?' supp':''}"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();event.stopPropagation();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}${z?` · ${suppNote(a)}`:''}</span></span><span class="pts">+${fmt(x.p)}</span></div>`;}
     html+=`</div>`;}
   if(!any)html+=`<div class="empty">No teammate ever won a scored accolade alongside ${esc(p.name)}.</div>`;
   html+=`</div>
@@ -509,8 +512,9 @@ function hthCol(p,win){
   const g=byAward(p),contrib=aggTeammates(p),top=contrib.slice(0,8),max=contrib[0]?contrib[0].p:1;
   let awardHtml='';
   for(const a of AWARD_ORDER){const inst=g[a];if(!inst||!inst.length)continue;
-    awardHtml+=`<div class="grid-award"><div class="grid-award-h" style="font-size:1rem">${esc(awLabel(a))}<span class="ct">${inst.length} · ${fmt(inst.length*SCORES[a])}</span></div>`;
-    for(const x of inst)awardHtml+=`<div class="inst"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}</span></span><span class="pts">+${fmt(SCORES[a])}</span></div>`;
+    const sub=inst.reduce((n,x)=>n+x.p,0);
+    awardHtml+=`<div class="grid-award"><div class="grid-award-h" style="font-size:1rem">${esc(awLabel(a))}<span class="ct">${inst.length} · ${fmt(sub)}</span></div>`;
+    for(const x of inst){const z=x.p===0;awardHtml+=`<div class="inst${z?' supp':''}"><span class="yr">${x.y}</span><span class="who"><a href="?p=${slugOf(x.n)}" onclick="event.preventDefault();navTo('?p=${slugOf(x.n)}')">${esc(x.n)}</a><span class="tm">${esc(teamName(x.t))}${z?` · ${suppNote(a)}`:''}</span></span><span class="pts">+${fmt(x.p)}</span></div>`;}
     awardHtml+=`</div>`;}
   return `<div class="section">
     <h2 style="font-size:1.1rem;color:var(--text);text-transform:none;letter-spacing:-.02em"><a href="?p=${p.slug}" onclick="event.preventDefault();navTo('?p=${p.slug}')" style="color:var(--text)">${esc(p.name)}</a> ${trophies(p.rings)}</h2>
