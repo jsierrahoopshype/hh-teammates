@@ -156,9 +156,11 @@ const AWARD_LABEL = {
   "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
   "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"
 };
+const ALLNBA_SET = new Set(["All-NBA First Team","All-NBA Second Team","All-NBA Third Team"]);
+const ALLDEF_SET = new Set(["All-Defensive First Team","All-Defensive Second Team"]);
 const INTRO_SEC = 1.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4;
 
-let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={};
+let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={}, LATEST_YEAR=0;
 let granularity = "accolade";
 let busy = false;
 
@@ -188,6 +190,8 @@ async function boot(){
     DB = await dRes.json();
     SCORES = DB.scores; TEAMS = DB.teams || {};
     DB.players.forEach(p => BY_NAME[p.name] = p);
+    // latest season present in the dataset — used to tell active from retired
+    LATEST_YEAR = DB.players.reduce((mx,p)=> p.years && p.years.length ? Math.max(mx, p.years[p.years.length-1]) : mx, 0);
     if(idRes && idRes.ok){ try{ HEADSHOT_IDS = await idRes.json(); }catch(e){ HEADSHOT_IDS = {}; } }
     const dl = $("playerlist");
     const names = DB.players.map(p=>p.name).sort();
@@ -261,29 +265,49 @@ function byYear(p){
   if(_byYear.has(p)) return _byYear.get(p);
   const m = {}; for(const s of p.detail) m[s.y] = s; _byYear.set(p, m); return m;
 }
+/* scored points for award i of a mate: per-accolade sp from the data, else the
+   flat scores[] value. Superseded accolades carry sp 0 (MVP supersedes the
+   teammate's All-NBA that season; DPOY supersedes All-Defensive). */
+function spOf(mate, i){
+  const a = mate.a[i];
+  return (mate.sp && mate.sp[i] != null) ? mate.sp[i] : (SCORES[a]||0);
+}
+function supersedeNote(award){
+  if(ALLNBA_SET.has(award)) return "counted under MVP";
+  if(ALLDEF_SET.has(award)) return "counted under DPOY";
+  return null;
+}
+const isActive = p => p.years && p.years.length && p.years[p.years.length-1] === LATEST_YEAR;
 /* rows for one season's decorated mates on one side */
 function seasonRows(entry, side){
   if(!entry) return [];
   const out = [];
   for(const mate of entry.mates){
     if(granularity === "accolade"){
-      for(const a of mate.a) out.push({ side, teammate:mate.n, awards:[a], points:(SCORES[a]||0) });
+      for(let i=0;i<mate.a.length;i++){
+        const a = mate.a[i], pts = spOf(mate,i);
+        out.push({ side, teammate:mate.n, awards:[a], points:pts,
+                   note: pts===0 ? supersedeNote(a) : null });
+      }
     } else {
-      let pts=0; for(const a of mate.a) pts += (SCORES[a]||0);
+      let pts=0; for(let i=0;i<mate.a.length;i++) pts += spOf(mate,i);
       out.push({ side, teammate:mate.n, awards:mate.a.slice(), points:pts });
     }
   }
   return out;
 }
 /* career-aligned plan: EVERY career-season index from 1..max appears (the
-   video always opens on Season 1). A career end yields a single 'closing'
-   card, after which that side is 'dim'. Both-empty seasons are kept but
-   marked bothEmpty (rendered slim, scrolled past fast). */
+   video always opens on Season 1). When a side runs out of seasons it shows a
+   single marker, then 'dim': retired players (last season before the latest in
+   the dataset) get a 'closing' "career over" card; players still active simply
+   get an 'active' "still active" marker (no false "career over"). */
 function buildPlan(pA,pB){
   const dA=byYear(pA), dB=byYear(pB);
   const maxN=Math.max(pA.years.length, pB.years.length);
+  const activeA=isActive(pA), activeB=isActive(pB);
   let shownA=false, shownB=false;
   const plan=[];
+  const ranOut = (active, shown) => active ? (shown?"dim":"active") : (shown?"dim":"closing");
   for(let n=1;n<=maxN;n++){
     const yA=n<=pA.years.length?pA.years[n-1]:null;
     const yB=n<=pB.years.length?pB.years[n-1]:null;
@@ -291,15 +315,15 @@ function buildPlan(pA,pB){
     const rowsA=seasonRows(eA,"A"), rowsB=seasonRows(eB,"B");
     const aOver=yA==null, bOver=yB==null;
     let colA = !aOver ? (rowsA.length?{type:"rows",rows:rowsA}:{type:"empty",rows:[]})
-                      : (!shownA?{type:"closing",rows:[]}:{type:"dim",rows:[]});
+                      : {type:ranOut(activeA,shownA), rows:[]};
     let colB = !bOver ? (rowsB.length?{type:"rows",rows:rowsB}:{type:"empty",rows:[]})
-                      : (!shownB?{type:"closing",rows:[]}:{type:"dim",rows:[]});
-    if(colA.type==="closing") shownA=true;
-    if(colB.type==="closing") shownB=true;
-    // a "filler" season has no reveal rows and no closing card on either side
+                      : {type:ranOut(activeB,shownB), rows:[]};
+    if(colA.type==="closing"||colA.type==="active") shownA=true;
+    if(colB.type==="closing"||colB.type==="active") shownB=true;
+    // a "filler" season has no reveal rows and no run-out marker on either side
     const hasRows = rowsA.length>0 || rowsB.length>0;
-    const hasClosing = colA.type==="closing" || colB.type==="closing";
-    const bothEmpty = !hasRows && !hasClosing;
+    const hasMarker = colA.type==="closing"||colA.type==="active"||colB.type==="closing"||colB.type==="active";
+    const bothEmpty = !hasRows && !hasMarker;
     plan.push({ n, yA, yB, teamA:eA?eA.t:null, teamB:eB?eB.t:null, aOver, bOver, colA, colB, bothEmpty });
   }
   return plan;
@@ -310,12 +334,13 @@ function involvedNames(pA,pB){
   for(const p of [pA,pB]) for(const s of p.detail) for(const m of s.mates) set.add(m.n);
   return [...set];
 }
-/* aggregate a player's teammates for the final card */
+/* aggregate a player's teammates for the final card (scored points = sp totals,
+   so the figures match the new data totals and the running tally) */
 function aggregate(p){
   const m = {};
   for(const s of p.detail) for(const mate of s.mates){
     const e = m[mate.n] || (m[mate.n] = { name:mate.n, pts:0, aw:{} });
-    e.pts += mate.p;
+    for(let i=0;i<mate.a.length;i++) e.pts += spOf(mate,i);
     for(const a of mate.a) e.aw[a] = (e.aw[a]||0) + 1;
   }
   const list = Object.values(m).sort((a,b)=> b.pts - a.pts || a.name.localeCompare(b.name));
@@ -415,9 +440,10 @@ function buildDocument(plan, geom){
   for(const pb of plan){
     const rowsA = pb.colA.rows, rowsB = pb.colB.rows;
     const slotCount = Math.max(rowsA.length, rowsB.length);
-    const hasClosing = pb.colA.type==="closing" || pb.colB.type==="closing";
-    const kind = slotCount>0 ? "content" : hasClosing ? "close" : "filler";
-    const slots = t => t==="rows" ? 0 : t==="dim" ? 0 : 1;       // closing/empty occupy 1 slot
+    const marker = t => t==="closing" || t==="active";
+    const hasMarker = marker(pb.colA.type) || marker(pb.colB.type);
+    const kind = slotCount>0 ? "content" : hasMarker ? "close" : "filler";
+    const slots = t => t==="rows" ? 0 : t==="dim" ? 0 : 1;       // closing/active/empty occupy 1 slot
     const slotsA = pb.colA.type==="rows" ? rowsA.length : slots(pb.colA.type);
     const slotsB = pb.colB.type==="rows" ? rowsB.length : slots(pb.colB.type);
     const bodyH = kind==="filler" ? rowH*0.7 : Math.max(slotsA, slotsB, 1) * rowH;
@@ -640,7 +666,8 @@ function drawHeader(ctx, R, block, screenTop){
 function drawColumn(ctx, R, block, side, x0, x1, bodyTop, scrollPx){
   const G=R.geom, col = side==="A"?block.colA:block.colB, tint = side==="A"?R.accent:SIDE_B_TINT;
   if(col.type==="dim") return;                                   // ended side — just dimmed/empty
-  if(col.type==="closing"){ drawClosing(ctx, R, side, x0, x1, bodyTop, block.bodyH, tint); return; }
+  if(col.type==="closing"){ drawClosing(ctx, R, side, x0, x1, bodyTop, block.bodyH, tint, false); return; }
+  if(col.type==="active"){ drawClosing(ctx, R, side, x0, x1, bodyTop, block.bodyH, tint, true); return; }
   if(col.type==="empty"){
     const cy = bodyTop + block.bodyH/2, a = edgeAlpha(G, cy-G.rowH/2, G.rowH)*0.45;
     if(a>0.01){ ctx.save(); ctx.globalAlpha=a; ctx.textAlign="center"; ctx.textBaseline="middle";
@@ -657,11 +684,13 @@ function drawColumn(ctx, R, block, side, x0, x1, bodyTop, scrollPx){
     drawRow(ctx, R, r, x0, x1, ty + slide, a, tint);
   });
 }
-function drawClosing(ctx, R, side, x0, x1, bodyTop, bodyH, tint){
+/* run-out marker. active=false → retired "career over · final {score}";
+   active=true → subtle dimmed "still active" (no score, no false "career over"). */
+function drawClosing(ctx, R, side, x0, x1, bodyTop, bodyH, tint, active){
   const G=R.geom, S=G.S, p = side==="A"?R.pA:R.pB, pad=S*6;
   const h = Math.min(bodyH, G.rowH) - 2*pad;
   const y = bodyTop + (bodyH - (h+2*pad))/2 + pad, x=x0, w=x1-x0;
-  const a = edgeAlpha(G, y, h)*0.6;
+  const a = edgeAlpha(G, y, h) * (active ? 0.4 : 0.6);
   if(a<=0.01) return;
   ctx.save(); ctx.globalAlpha=a;
   rr(ctx,x,y,w,h,S*12); ctx.fillStyle="#151823"; ctx.fill();
@@ -670,9 +699,14 @@ function drawClosing(ctx, R, side, x0, x1, bodyTop, bodyH, tint){
   const tx=x+S*18, cy=y+h/2;
   ctx.textAlign="left"; ctx.textBaseline="middle";
   ctx.fillStyle=tint; ctx.font=`700 ${S*20}px 'DM Sans',sans-serif`;
-  ctx.save(); fitText(ctx,p.name,w*0.58); ctx.fillText(p.name,tx,cy-S*10); ctx.restore();
-  ctx.fillStyle=COL.sec; ctx.font=nameFont(S*15); ctx.fillText("career over",tx,cy+S*12);
-  ctx.textAlign="right"; ctx.fillStyle=tint; ctx.font=numFont(S*26); ctx.fillText(fmtPts(p.score),x1-S*16,cy);
+  if(active){
+    ctx.save(); fitText(ctx,p.name,w*0.7); ctx.fillText(p.name,tx,cy-S*10); ctx.restore();
+    ctx.fillStyle=COL.sec; ctx.font=nameFont(S*15); ctx.fillText("still active",tx,cy+S*12);
+  } else {
+    ctx.save(); fitText(ctx,p.name,w*0.58); ctx.fillText(p.name,tx,cy-S*10); ctx.restore();
+    ctx.fillStyle=COL.sec; ctx.font=nameFont(S*15); ctx.fillText("career over",tx,cy+S*12);
+    ctx.textAlign="right"; ctx.fillStyle=tint; ctx.font=numFont(S*26); ctx.fillText(fmtPts(p.score),x1-S*16,cy);
+  }
   ctx.restore();
 }
 function drawRow(ctx, R, r, x0, x1, ty, baseAlpha, tint){
@@ -697,10 +731,16 @@ function drawRow(ctx, R, r, x0, x1, ty, baseAlpha, tint){
   rr(ctx,x,y,S*4,h,S*2); ctx.fillStyle=tint; ctx.fill();          // 4px left accent bar
   const chipR=h*0.36, chipCx=x+S*14+chipR;
   drawHead(ctx, R.heads[r.teammate]||null, chipCx, cy, chipR, null, r.teammate);
-  const ptsTxt = "+"+fmtPts(r.points);
   ctx.textAlign="right"; ctx.textBaseline="middle";
-  ctx.fillStyle=tint; ctx.font=numFont(big?S*34:S*28);
-  const pw=ctx.measureText(ptsTxt).width; ctx.fillText(ptsTxt, x1-S*14, cy);
+  let pw;
+  if(r.note){                                   // superseded accolade: muted note, +0
+    ctx.fillStyle=COL.sec; ctx.font=`600 ${S*15}px 'DM Sans',sans-serif`;
+    pw = ctx.measureText(r.note).width; ctx.fillText(r.note, x1-S*14, cy);
+  } else {
+    const ptsTxt = "+"+fmtPts(r.points);
+    ctx.fillStyle=tint; ctx.font=numFont(big?S*34:S*28);
+    pw = ctx.measureText(ptsTxt).width; ctx.fillText(ptsTxt, x1-S*14, cy);
+  }
   const tx = chipCx+chipR+S*14, tmax = x1 - S*14 - pw - S*12 - tx;
   ctx.textAlign="left";
   ctx.fillStyle=COL.text; ctx.font=`700 ${big?S*26:S*23}px 'DM Sans',sans-serif`; ctx.textBaseline="alphabetic";
