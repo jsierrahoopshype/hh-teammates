@@ -158,7 +158,7 @@ const AWARD_LABEL = {
 };
 const ALLNBA_SET = new Set(["All-NBA First Team","All-NBA Second Team","All-NBA Third Team"]);
 const ALLDEF_SET = new Set(["All-Defensive First Team","All-Defensive Second Team"]);
-const INTRO_SEC = 1.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4;
+const INTRO_SEC = 1.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4, TAIL_SEC = 0.42;
 
 let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={}, LATEST_YEAR=0;
 let granularity = "accolade";
@@ -263,7 +263,9 @@ async function preloadHeads(names, onProgress){
 const _byYear = new WeakMap();
 function byYear(p){
   if(_byYear.has(p)) return _byYear.get(p);
-  const m = {}; for(const s of p.detail) m[s.y] = s; _byYear.set(p, m); return m;
+  const m = {};                       // year -> [detail entries]; >1 when the player
+  for(const s of p.detail){ (m[s.y] || (m[s.y] = [])).push(s); }   // was traded mid-season
+  _byYear.set(p, m); return m;
 }
 /* scored points for award i of a mate: per-accolade sp from the data, else the
    flat scores[] value. Superseded accolades carry sp 0 (MVP supersedes the
@@ -278,11 +280,14 @@ function supersedeNote(award){
   return null;
 }
 const isActive = p => p.years && p.years.length && p.years[p.years.length-1] === LATEST_YEAR;
-/* rows for one season's decorated mates on one side */
-function seasonRows(entry, side){
-  if(!entry) return [];
+/* rows for one career-season's decorated mates on one side. `entries` is the
+   list of detail rows for that season's calendar year (more than one when the
+   player was traded mid-season); mates from all of them are included so no
+   teammate's accolades are dropped. */
+function seasonRows(entries, side){
+  if(!entries || !entries.length) return [];
   const out = [];
-  for(const mate of entry.mates){
+  for(const entry of entries) for(const mate of entry.mates){
     if(granularity === "accolade"){
       for(let i=0;i<mate.a.length;i++){
         const a = mate.a[i], pts = spOf(mate,i);
@@ -324,7 +329,9 @@ function buildPlan(pA,pB){
     const hasRows = rowsA.length>0 || rowsB.length>0;
     const hasMarker = colA.type==="closing"||colA.type==="active"||colB.type==="closing"||colB.type==="active";
     const bothEmpty = !hasRows && !hasMarker;
-    plan.push({ n, yA, yB, teamA:eA?eA.t:null, teamB:eB?eB.t:null, aOver, bOver, colA, colB, bothEmpty });
+    const teamA = eA&&eA.length ? eA[eA.length-1].t : null;   // last team if traded mid-season
+    const teamB = eB&&eB.length ? eB[eB.length-1].t : null;
+    plan.push({ n, yA, yB, teamA, teamB, aOver, bOver, colA, colB, bothEmpty });
   }
   return plan;
 }
@@ -382,7 +389,10 @@ function pacing(plan, geom){
   else if(durSel === "manual")        beat = 0.7;
   else { const target = durSel==="auto" ? 60 : parseFloat(durSel);
          beat = clamp((target - INTRO_SEC - SETTLE_SEC - TRANS_SEC - FINAL_SEC) / Math.max(elementCount,1), 0.5, 1.2); }
-  const scrollSec = elementCount * beat;
+  // TAIL_SEC keeps the scroll phase running (view frozen at the fully-scrolled
+  // position) after the last step so the final rows' tick roll-ins complete and
+  // the scoreboard reaches each player's exact total before the held frames.
+  const scrollSec = elementCount * beat + TAIL_SEC;
   const total = INTRO_SEC + scrollSec + SETTLE_SEC + TRANS_SEC + FINAL_SEC;
   return { beat, scrollSec, total, beats, elementCount, flush, fillers, doc };
 }
@@ -559,15 +569,16 @@ function drawSbSide(ctx, R, cx, cy, r, img, name, val, sideColor, side, lead, pu
   ctx.textAlign="center"; ctx.textBaseline="alphabetic";
   ctx.fillStyle = COL.text; ctx.font = `700 ${S*19}px 'DM Sans',sans-serif`;
   ctx.save(); fitText(ctx, name, W*0.40); ctx.fillText(name, cx, sbH*0.60); ctx.restore();
-  // score (own side color, always)
-  const scoreY = sbH*0.92, sc = (lead?1.06:1)*(1+0.22*pulse);
+  // score (own side color, always) — fmtPts so the final value matches the
+  // finale card exactly (e.g. 25.25, not 25.3)
+  const scoreY = sbH*0.92, sc = (lead?1.06:1)*(1+0.22*pulse), valTxt = fmtPts(val);
   ctx.save(); ctx.translate(cx, scoreY); ctx.scale(sc, sc);
   ctx.fillStyle = sideColor; ctx.font = numFont(S*46);
-  ctx.textAlign="center"; ctx.textBaseline="alphabetic"; ctx.fillText(fmt1(val), 0, 0);
+  ctx.textAlign="center"; ctx.textBaseline="alphabetic"; ctx.fillText(valTxt, 0, 0);
   ctx.restore();
   ctx.restore();
   if(lead){                                   // leader triangle, full opacity
-    ctx.font = numFont(S*46); const tw = ctx.measureText(fmt1(val)).width*(1.06);
+    ctx.font = numFont(S*46); const tw = ctx.measureText(valTxt).width*(1.06);
     const ax = cx - tw/2 - S*18, ay = scoreY - S*13;
     ctx.fillStyle = sideColor;
     ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+S*13,ay); ctx.lineTo(ax+S*6.5,ay-S*12); ctx.closePath(); ctx.fill();
@@ -962,16 +973,14 @@ async function prepare(){
       const scrollPx = scrollPxAt(ts); const [vA,vB] = tally(ts);
       drawScrollFrame(ctx, R, scrollPx, vA, vB); return;
     }
-    if(g < settleEnd){                                  // hold the flushed final frame
+    if(g < settleEnd){                                  // hold: snap to exact stored totals
       R.ts = scrollSec; R.activeSide = null;
-      const [vA,vB] = tally(scrollSec);
-      drawScrollFrame(ctx, R, scrollEndPx, vA, vB); return;
+      drawScrollFrame(ctx, R, scrollEndPx, R.pA.score, R.pB.score); return;
     }
     if(g < transEnd){
       const tp = easeOutCubic((g - settleEnd)/transF);
       R.ts = scrollSec; R.activeSide = null;
-      const [vA,vB] = tally(scrollSec);
-      drawScrollFrame(ctx, R, scrollEndPx, vA, vB);     // frozen final scroll frame
+      drawScrollFrame(ctx, R, scrollEndPx, R.pA.score, R.pB.score);  // frozen final frame, exact totals
       drawFinalCard(ctx, R, tp);                         // finale fades in over it
       return;
     }
