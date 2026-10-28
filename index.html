@@ -8,10 +8,10 @@
 <link rel="canonical" id="canon" href="https://jsierrahoopshype.github.io/hh-teammates/" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-/* Self-hosted fonts (assets/fonts, OFL): this repo's file first; on hoopsmatic.com, which has no
-   /teammates/assets/ route, the same file as hoopsmatic.com serves it for NBA Lineups. */
-@font-face{font-family:'DM Sans';src:url(assets/fonts/dm-sans-latin.woff2) format('woff2'),url(/lineups/fonts/dm-sans-latin.woff2) format('woff2');font-weight:100 1000;font-style:normal;font-display:swap}
-@font-face{font-family:'JetBrains Mono';src:url(assets/fonts/jetbrains-mono-latin.woff2) format('woff2'),url(/lineups/fonts/jetbrains-mono-latin.woff2) format('woff2');font-weight:400 800;font-style:normal;font-display:swap}
+/* Self-hosted fonts (assets/fonts, OFL). First the path hoopsmatic.com serves them at (the Worker
+   proxies /teammates/assets/fonts/ from this repo); second the repo-relative path, for the github.io copy. */
+@font-face{font-family:'DM Sans';src:url(/teammates/assets/fonts/dm-sans-latin.woff2) format('woff2'),url(assets/fonts/dm-sans-latin.woff2) format('woff2');font-weight:100 1000;font-style:normal;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url(/teammates/assets/fonts/jetbrains-mono-latin.woff2) format('woff2'),url(assets/fonts/jetbrains-mono-latin.woff2) format('woff2');font-weight:400 800;font-style:normal;font-display:swap}
 :root{
   --bg:#f5f5f7;--surface:#fff;--surface-hover:#f0f0f2;--border:#d1d1d6;
   --text:#1d1d1f;--text-secondary:#6e6e73;--accent:#3b82f6;--accent-dim:rgba(59,130,246,.15);

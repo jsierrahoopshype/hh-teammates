@@ -303,15 +303,13 @@ h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--te
 @media(min-width:640px){.container{padding:1.5rem 1.5rem 4rem}h1{font-size:2.1rem}.hs{width:96px;height:96px}.num{font-size:1.4rem}.cta{display:inline-block;padding:.75rem 1.4rem}}"""
 # Fonts are self-hosted (assets/fonts, OFL licences next to the files): nothing loads from Google.
 # Same families, latin subset, variable weight, as the Google Fonts files the pages used before.
-# First source: this repo's own file (path relative to the page). Second: the same file as
-# hoopsmatic.com already serves it for NBA Lineups. The Worker has no /teammates/assets/ route
-# and its CSP only allows fonts from hoopsmatic.com itself, so on hoopsmatic.com the first 404s
-# and the browser takes the second; on github.io the first loads.
+# First source: /teammates/assets/fonts/, where hoopsmatic.com serves this repo's files (the Worker
+# proxies that folder). Second: the path relative to the page, for the github.io copy.
 def font_faces(prefix):
     """@font-face rules for DM Sans and JetBrains Mono; prefix leads from the page to the repo root ('' or '../')."""
     return "".join(
-        f"@font-face{{font-family:'{fam}';src:url({prefix}assets/fonts/{fn}) format('woff2'),"
-        f"url(/lineups/fonts/{fn}) format('woff2');font-weight:{w};font-style:normal;font-display:swap}}\n"
+        f"@font-face{{font-family:'{fam}';src:url(/teammates/assets/fonts/{fn}) format('woff2'),"
+        f"url({prefix}assets/fonts/{fn}) format('woff2');font-weight:{w};font-style:normal;font-display:swap}}\n"
         for fam,fn,w in (("DM Sans","dm-sans-latin.woff2","100 1000"),
                          ("JetBrains Mono","jetbrains-mono-latin.woff2","400 800")))
 # Every page ends with these two lines (Jorge's site-wide footer), after the page's own content.
