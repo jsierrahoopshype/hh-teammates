@@ -253,8 +253,6 @@ STUB_CSS = """:root{--bg:#f5f5f7;--surface:#fff;--surface-hover:#f0f0f2;--border
 body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-wrap:anywhere}
 a{color:var(--accent);text-decoration:none}
 .container{max-width:760px;margin:0 auto;padding:1rem 1rem 3rem}
-.kick{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
-.kick:hover{color:var(--accent)}
 .phead{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem}
 .hs{flex:none;width:72px;height:72px;border-radius:50%;overflow:hidden;object-fit:cover;background:#e8e8ed}
 .hs.imgfail{display:none}
@@ -277,10 +275,28 @@ h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--te
 .accs li{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;padding:.15rem .5rem;border-radius:5px;background:var(--accent-dim);color:#1d4ed8}
 .empty{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;color:var(--text-secondary);font-size:.9rem}
 .foot{font-size:.72rem;color:var(--text-secondary);margin-top:1.6rem;font-family:'JetBrains Mono',monospace;line-height:1.7}
+.contact{max-width:760px;margin:0 auto;padding:0 1rem 2rem;text-align:center;font-size:.75rem;color:var(--text-secondary);line-height:1.7}
+.contact a{color:inherit;text-decoration:underline}
 @media(min-width:640px){.container{padding:1.5rem 1.5rem 4rem}h1{font-size:2.1rem}.hs{width:96px;height:96px}.num{font-size:1.4rem}.cta{display:inline-block;padding:.75rem 1.4rem}}"""
-FONTS_LINK = ('<link rel="preconnect" href="https://fonts.googleapis.com">\n'
-              '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-              '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">')
+# Fonts are self-hosted (assets/fonts, OFL licences next to the files): nothing loads from Google.
+# Same families, latin subset, variable weight, as the Google Fonts files the pages used before.
+# First source: this repo's own file (path relative to the page). Second: the same file as
+# hoopsmatic.com already serves it for NBA Lineups. The Worker has no /teammates/assets/ route
+# and its CSP only allows fonts from hoopsmatic.com itself, so on hoopsmatic.com the first 404s
+# and the browser takes the second; on github.io the first loads.
+def font_faces(prefix):
+    """@font-face rules for DM Sans and JetBrains Mono; prefix leads from the page to the repo root ('' or '../')."""
+    return "".join(
+        f"@font-face{{font-family:'{fam}';src:url({prefix}assets/fonts/{fn}) format('woff2'),"
+        f"url(/lineups/fonts/{fn}) format('woff2');font-weight:{w};font-style:normal;font-display:swap}}\n"
+        for fam,fn,w in (("DM Sans","dm-sans-latin.woff2","100 1000"),
+                         ("JetBrains Mono","jetbrains-mono-latin.woff2","400 800")))
+# Every page ends with these two lines (Jorge's site-wide footer), after the page's own content.
+CONTACT_LINES = (("Anything wrong? Email us at ","hoopsmatic@hoopsmatic.com"),
+                 ("For business inquiries, contact us at ","ads@hoopsmatic.com"))
+CONTACT_FOOTER = ('<footer class="contact">'
+                  + "".join(f'<p>{t}<a href="mailto:{a}">{a}</a></p>' for t,a in CONTACT_LINES)
+                  + '</footer>')
 FOOT = ("Teammates Score adds up the accolades of every teammate a player shared a season with: MVP &amp; Finals MVP 10, "
         "All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125. "
         "A teammate's MVP already covers his All-NBA selection that season (and DPOY covers All-Defensive), so those aren't counted twice.")
@@ -300,7 +316,8 @@ def stub_content(p, site, stems=None):
           f'See every accolade won by the teammates {p["name"]} shared a roster with.')
     return {"name":p["name"],"slug":p["slug"],"score":scs,"rank":p["rank"],"seasons":p["seasons"],
             "rings":p["rings"],"hs":face_fill_file(p.get("hs"),stems),"desc":desc,"url":f'{site}/p/{p["slug"]}.html',
-            "og_img":(OG_HS_BASE+p["hs"]) if p.get("hs") else f"{site}/og.png","mates":mates}
+            "og_img":(OG_HS_BASE+p["hs"]) if p.get("hs") else f"{site}/og.png","mates":mates,
+            "contact":[t+a for t,a in CONTACT_LINES]}
 
 def content_hash(c):
     return hashlib.sha256(json.dumps(c,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode("utf-8")).hexdigest()[:16]
@@ -336,11 +353,9 @@ def write_stub(c, outdir):
 <meta name="twitter:description" content="{desc}">
 <meta name="twitter:image" content="{c['og_img']}">
 <script>location.replace("../?p={slug}");</script>
-{FONTS_LINK}
-<style>{STUB_CSS}</style>
+<style>{font_faces("../")}{STUB_CSS}</style>
 </head><body>
 <main class="container">
-<a class="kick" href="../">NBA Teammates Score · HoopsMatic</a>
 <header class="phead">{photo}<div><h1>{name}</h1>{rings}</div></header>
 <div class="stats">
 <div class="stat"><div class="num accent">{c['score']}</div><div class="lbl">Teammates Score</div></div>
@@ -352,7 +367,9 @@ def write_stub(c, outdir):
 <h2>Most valuable teammates</h2>
 {mates}
 <p class="foot">{FOOT}</p>
-</main></body></html>"""
+</main>
+{CONTACT_FOOTER}
+</body></html>"""
     with open(os.path.join(outdir, f'{slug}.html'), "w", encoding="utf-8") as f:
         f.write(doc)
 
