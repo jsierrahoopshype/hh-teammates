@@ -35,7 +35,35 @@ AWARD_LABEL = {
     "All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team",
     "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team",
 }
-HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/"
+# Page headshot: nba-headshots' face-fill files, the one HoopsMatic headshot (face fills the circle).
+# The data's "hs" is the player's file stem plus ".png" (from data/headshots.json); face-fill uses the
+# same stems as .webp. og:image keeps the PNG in face/: social previews need an opaque image.
+HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face-fill/"
+OG_HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/"
+FACE_FILL_LIST = "https://raw.githubusercontent.com/jsierrahoopshype/nba-headshots/main/players/headshots/face-fill/.hashes.json"
+
+def load_face_fill():
+    """The stems that have a face-fill file (public file, no key). None if it can't be fetched:
+    then every photo is kept and the page's onerror shows initials for any that is missing."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(FACE_FILL_LIST, timeout=60) as r:
+            stems=set(json.loads(r.read())["files"])
+        print(f"face-fill list: {len(stems)} players")
+        return stems
+    except Exception as e:
+        print(f"face-fill list not fetched ({e}); keeping every photo, initials if one fails to load")
+        return None
+
+def face_fill_file(hs, stems):
+    """'<stem>.png' -> '<stem>.webp' when face-fill has that player, else '' (initials)."""
+    if not hs: return ""
+    stem=hs.rsplit(".",1)[0]
+    return f"{stem}.webp" if stems is None or stem in stems else ""
+
+def initials(name):
+    w=[x for x in re.sub(r"[.,]","",name).split() if x.lower() not in ("jr","sr","ii","iii","iv")]
+    return ((w[0][0]+(w[-1][0] if len(w)>1 else "")).upper()) if w else ""
 TEAM_FALLBACK = {
     "WSC":"Washington Capitols","DTF":"Detroit Falcons","PRO":"Providence Steamrollers",
     "STB":"St. Louis Bombers","CLR":"Cleveland Rebels","CHS":"Chicago Stags","TOH":"Toronto Huskies",
@@ -138,8 +166,10 @@ a{color:var(--accent);text-decoration:none}
 .kick{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
 .kick:hover{color:var(--accent)}
 .phead{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem}
-.hs{flex:none;width:72px;height:72px;border-radius:14px;object-fit:cover;object-position:50% 16%;background:var(--surface-hover);border:1px solid var(--border)}
+.hs{flex:none;width:72px;height:72px;border-radius:50%;overflow:hidden;object-fit:cover;background:#e8e8ed}
 .hs.imgfail{display:none}
+.hs.ini{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.5rem;color:#8e8e93}
+.hs.ini[hidden]{display:none}
 .phead div{min-width:0}
 h1{font-size:1.65rem;font-weight:800;letter-spacing:-.03em;line-height:1.1}
 .rings{display:block;font-size:.95rem;margin-top:.3rem}
@@ -165,7 +195,7 @@ FOOT = ("Teammates Score adds up the accolades of every teammate a player shared
         "All-NBA 1st 4, DPOY 4, All-NBA 2nd 3, 3rd 2, All-Star &amp; All-D 1st 1, down to All-Rookie 2nd 0.125. "
         "A teammate's MVP already covers his All-NBA selection that season (and DPOY covers All-Defensive), so those aren't counted twice.")
 
-def stub_content(p, site):
+def stub_content(p, site, stems=None):
     """Everything a player page says, without markup. The page is rendered from this, and its hash drives sitemap <lastmod>."""
     sc=p["score"]; scs=str(int(sc)) if sc==int(sc) else str(round(sc,2))
     # top contributors with their headline accolades
@@ -179,8 +209,8 @@ def stub_content(p, site):
     desc=(f'{p["name"]} has a Teammates Score of {scs}, ranked #{p["rank"]} of all time. '
           f'See every accolade won by the teammates {p["name"]} shared a roster with.')
     return {"name":p["name"],"slug":p["slug"],"score":scs,"rank":p["rank"],"seasons":p["seasons"],
-            "rings":p["rings"],"hs":p.get("hs") or "","desc":desc,"url":f'{site}/p/{p["slug"]}.html',
-            "og_img":(HS_BASE+p["hs"]) if p.get("hs") else f"{site}/og.png","mates":mates}
+            "rings":p["rings"],"hs":face_fill_file(p.get("hs"),stems),"desc":desc,"url":f'{site}/p/{p["slug"]}.html',
+            "og_img":(OG_HS_BASE+p["hs"]) if p.get("hs") else f"{site}/og.png","mates":mates}
 
 def content_hash(c):
     return hashlib.sha256(json.dumps(c,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode("utf-8")).hexdigest()[:16]
@@ -188,8 +218,10 @@ def content_hash(c):
 def write_stub(c, outdir):
     name=html.escape(c["name"]); desc=html.escape(c["desc"]); slug=c["slug"]
     def plural(n,one,many): return one if n==1 else many
+    # no face-fill file, or one that fails to load: the player's initials in the same circle
+    ini=f'<span class="hs ini" aria-hidden="true"{" hidden" if c["hs"] else ""}>{html.escape(initials(c["name"]))}</span>'
     photo=(f'<img class="hs" src="{HS_BASE}{html.escape(c["hs"])}" alt="{name}" width="96" height="96" '
-           f'onerror="this.classList.add(\'imgfail\')">') if c["hs"] else ""
+           f'onerror="this.classList.add(\'imgfail\');this.nextElementSibling.hidden=false">' if c["hs"] else "")+ini
     rings=(f'<span class="rings" role="img" aria-label="{c["rings"]} NBA {plural(c["rings"],"title","titles")}">'
            f'{"🏆"*c["rings"]}</span>') if c["rings"] else ""
     items=""
@@ -304,9 +336,9 @@ def main():
 
     if not args.no_pages:
         os.makedirs("p",exist_ok=True)
-        site=args.site.rstrip("/"); hashes={}
+        site=args.site.rstrip("/"); hashes={}; stems=load_face_fill()
         for p in players:
-            c=stub_content(p, site); write_stub(c, "p"); hashes[p["slug"]]=content_hash(c)
+            c=stub_content(p, site, stems); write_stub(c, "p"); hashes[p["slug"]]=content_hash(c)
         print(f"Wrote {len(players)} pre-rendered pages to p/")
         if not args.from_json: write_default_og("og.png")
         # Home page: its date follows the app file and its data.

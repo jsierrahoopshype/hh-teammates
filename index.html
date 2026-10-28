@@ -190,8 +190,9 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.player .scorebox .big{font-family:'JetBrains Mono',monospace;font-size:200px;font-weight:700;line-height:.78;color:#3b82f6}
 .sc.player .scorebox .rk{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;text-align:right;color:#fff}
 .sc.player .scorebox .rk span{display:block;font-size:26px;color:#9aa3b4;letter-spacing:.1em;text-transform:uppercase;font-weight:500;margin-top:8px}
-.sc.player .pphoto{flex:none;width:300px;height:300px;border-radius:20px;object-fit:cover;object-position:50% 16%;background:#171a21;border:2px solid #232838}
+.sc.player .pphoto{flex:none;width:300px;height:300px;border-radius:50%;object-fit:cover;background:#2a2f3a;border:2px solid #232838}
 .sc.player .pphoto.imgfail{display:none}
+.sc.player .pphoto.ini{display:flex;align-items:center;justify-content:center;font-size:110px;font-weight:700;color:#8a93a6}
 /* hth card 1080x1350 */
 .sc.hth{width:1200px;min-height:1480px;display:flex;flex-direction:column}
 .sc.hth .kick{font-size:28px}
@@ -200,8 +201,10 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 .sc.hth .matchup{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;padding:40px 56px 0}
 .sc.hth .side{text-align:center;padding:34px 18px;border-radius:24px;border:2px solid transparent}
 .sc.hth .side.win{background:rgba(59,130,246,.13);border-color:rgba(59,130,246,.55)}
-.sc.hth .side .hphoto{width:190px;height:190px;border-radius:50%;object-fit:cover;object-position:50% 16%;display:block;margin:0 auto 16px;background:#171a21;border:3px solid #2a3346}
+.sc.hth .side .hphoto{width:190px;height:190px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 16px;background:#2a2f3a;border:3px solid #2a3346}
 .sc.hth .side .hphoto.imgfail{display:none}
+.sc.hth .side .hphoto.ini{display:flex;align-items:center;justify-content:center;font-size:70px;font-weight:700;color:#8a93a6}
+.sc.player .pphoto.ini[hidden],.sc.hth .side .hphoto.ini[hidden]{display:none}
 .sc.hth .side .pn{font-size:50px;font-weight:800;line-height:1.04}
 .sc.hth .side .rg{font-size:28px;letter-spacing:-.1em;margin-top:10px;height:34px;color:#caa23a}
 .sc.hth .side .scn{font-family:'JetBrains Mono',monospace;font-size:132px;font-weight:700;line-height:.82;margin-top:16px;color:#9aa3b4}
@@ -252,10 +255,10 @@ table.lb td.pl{text-align:left;font-family:'DM Sans',sans-serif;background:#fff;
 <script>
 const DATA_URL="data/teammates.json";
 const SITE="https://jsierrahoopshype.github.io/hh-teammates";
-/* Set this to your headshot proxy/base to light up photos on the cards, e.g.
-   "https://nba-proxy.thejorgesierra.workers.dev/headshot/" and HEADSHOT_EXT below.
-   Filenames are keyed by slug (derek-fisher). Leave blank for typographic cards. */
-const HEADSHOT_BASE="https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/";
+/* Card photos: nba-headshots' face-fill files (the one HoopsMatic headshot), 320px since the
+   card circles are 190-300px. p.hs is the player's file stem + ".png"; face-fill has the same
+   stems as .webp. No photo, or one that fails to load: the player's initials in the circle. */
+const HEADSHOT_BASE="https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face-fill-320/";
 const AWARD_ORDER=["Most Valuable Player","Finals MVP","All-NBA First Team","Defensive Player of the Year","All-NBA Second Team","All-NBA Third Team","All-Star","All-Defensive First Team","Rookie of the Year","Sixth Man of the Year","All-Defensive Second Team","All-Star MVP","Most Improved Player","All-Rookie First Team","All-Rookie Second Team"];
 const AWARD_LABEL={"Most Valuable Player":"MVP","All-NBA First Team":"All-NBA 1st Team","All-NBA Second Team":"All-NBA 2nd Team","All-NBA Third Team":"All-NBA 3rd Team","All-Defensive First Team":"All-Defensive 1st Team","All-Defensive Second Team":"All-Defensive 2nd Team","All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team"};
 const ALLNBA=new Set(["All-NBA First Team","All-NBA Second Team","All-NBA Third Team"]);
@@ -559,8 +562,9 @@ function wireSearch(inputId,acId,onPick){
 /* ---------------- share cards ---------------- */
 let cardName='card';
 function othersAgg(rest){const ra={};let rp=0;rest.forEach(m=>{rp+=m.p;for(const a in m.aw)ra[a]=(ra[a]||0)+m.aw[a];});return {n:rest.length,p:rp,aw:ra};}
-function headshotURL(p){return p&&p.hs?HEADSHOT_BASE+p.hs:'';}
-function photoTag(p,cls){const u=headshotURL(p);return u?`<img class="${cls}" crossorigin="anonymous" src="${u}" onerror="this.classList.add('imgfail')">`:'';}
+function headshotURL(p){return p&&p.hs?HEADSHOT_BASE+p.hs.replace(/\.png$/,'.webp'):'';}
+function initialsOf(n){const w=String(n||'').replace(/[.,]/g,'').split(/\s+/).filter(x=>x&&!/^(jr|sr|ii|iii|iv)$/i.test(x));return w.length?((w[0][0]||'')+(w.length>1?w[w.length-1][0]:'')).toUpperCase():'';}
+function photoTag(p,cls){const u=headshotURL(p),ini=`<div class="${cls} ini"${u?' hidden':''}>${esc(initialsOf(p&&p.name))}</div>`;return (u?`<img class="${cls}" crossorigin="anonymous" src="${u}" onerror="this.classList.add('imgfail');this.nextElementSibling.hidden=false">`:'')+ini;}
 function waitImgs(node){const imgs=[...node.querySelectorAll('img')];return Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=im.onerror=r;})));}
 function fitCard(){
   const host=document.getElementById('cardHost'),el=host.firstElementChild;if(!el)return;
