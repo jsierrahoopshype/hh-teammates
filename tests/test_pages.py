@@ -28,7 +28,10 @@ class Pages(unittest.TestCase):
         for p in PAGES:
             s = read(p)
             for fn in ("dm-sans-latin.woff2", "jetbrains-mono-latin.woff2"):
-                self.assertIn(f"assets/fonts/{fn}", s, p)
+                # hoopsmatic.com's path first, then the repo-relative one; no other section's fonts
+                rel = ("../" if os.sep + "p" + os.sep in p else "") + f"assets/fonts/{fn}"
+                self.assertIn(f"src:url(/teammates/assets/fonts/{fn}) format('woff2'),url({rel}) format('woff2')", s, p)
+                self.assertNotIn("/lineups/fonts/", s, p)
                 self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "fonts", fn)), fn)
         for lic in ("OFL-DMSans.txt", "OFL-JetBrainsMono.txt"):
             self.assertTrue(os.path.exists(os.path.join(ROOT, "assets", "fonts", lic)), lic)
