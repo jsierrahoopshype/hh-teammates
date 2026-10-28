@@ -24,8 +24,10 @@ a{color:var(--accent);text-decoration:none}
 .kick{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
 .kick:hover{color:var(--accent)}
 .phead{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem}
-.hs{flex:none;width:72px;height:72px;border-radius:14px;object-fit:cover;object-position:50% 16%;background:var(--surface-hover);border:1px solid var(--border)}
+.hs{flex:none;width:72px;height:72px;border-radius:50%;overflow:hidden;object-fit:cover;background:#e8e8ed}
 .hs.imgfail{display:none}
+.hs.ini{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.5rem;color:#8e8e93}
+.hs.ini[hidden]{display:none}
 .phead div{min-width:0}
 h1{font-size:1.65rem;font-weight:800;letter-spacing:-.03em;line-height:1.1}
 .rings{display:block;font-size:.95rem;margin-top:.3rem}
@@ -47,7 +49,7 @@ h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--te
 </head><body>
 <main class="container">
 <a class="kick" href="../">NBA Teammates Score · HoopsMatic</a>
-<header class="phead"><div><h1>Marcus Paige</h1></div></header>
+<header class="phead"><span class="hs ini" aria-hidden="true">MP</span><div><h1>Marcus Paige</h1></div></header>
 <div class="stats">
 <div class="stat"><div class="num accent">1</div><div class="lbl">Teammates Score</div></div>
 <div class="stat"><div class="num">#4415</div><div class="lbl">All-time rank</div></div>
