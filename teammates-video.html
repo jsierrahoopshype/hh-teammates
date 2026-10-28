@@ -144,7 +144,6 @@
    Career-aligned scrolling timeline + share-card freeze frame.
    ============================================================ */
 const DATA_URL   = "data/teammates.json";
-const IDS_URL    = "data/headshot_ids.json";
 // face-fill: the one HoopsMatic headshot (face fills the circle), 320px for video frames.
 const HEADSHOT_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face-fill-320/";
 
@@ -160,7 +159,7 @@ const ALLNBA_SET = new Set(["All-NBA First Team","All-NBA Second Team","All-NBA 
 const ALLDEF_SET = new Set(["All-Defensive First Team","All-Defensive Second Team"]);
 const INTRO_SEC = 1.5, FINAL_SEC = 5, TRANS_SEC = 0.4, SETTLE_SEC = 0.4, TAIL_SEC = 0.42;
 
-let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, HEADSHOT_IDS={}, LATEST_YEAR=0;
+let DB=null, BY_NAME={}, SCORES={}, TEAMS={}, LATEST_YEAR=0;
 let granularity = "accolade";
 let busy = false;
 
@@ -173,26 +172,15 @@ const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
 const fmt1 = n => n.toFixed(1);
 const fmtPts = n => { const r = Math.round(n*1000)/1000; return r%1===0 ? r.toString() : parseFloat(r.toFixed(3)).toString(); };
 
-/* normalize a name the same way build_teammates.py / the site tools do:
-   NFKD -> ascii -> lowercase -> non-alphanumeric collapsed to spaces -> trim */
-function normName(s){
-  return s.normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase()
-          .replace(/[^a-z0-9]+/g," ").trim();
-}
-
 /* ---------- boot ---------- */
 async function boot(){
   try{
-    const [dRes, idRes] = await Promise.all([
-      fetch(DATA_URL, {cache:"no-cache"}),
-      fetch(IDS_URL,  {cache:"no-cache"}).catch(()=>null)
-    ]);
+    const dRes = await fetch(DATA_URL, {cache:"no-cache"});
     DB = await dRes.json();
     SCORES = DB.scores; TEAMS = DB.teams || {};
     DB.players.forEach(p => BY_NAME[p.name] = p);
     // latest season present in the dataset — used to tell active from retired
     LATEST_YEAR = DB.players.reduce((mx,p)=> p.years && p.years.length ? Math.max(mx, p.years[p.years.length-1]) : mx, 0);
-    if(idRes && idRes.ok){ try{ HEADSHOT_IDS = await idRes.json(); }catch(e){ HEADSHOT_IDS = {}; } }
     const dl = $("playerlist");
     const names = DB.players.map(p=>p.name).sort();
     dl.innerHTML = names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join("");
@@ -206,25 +194,14 @@ async function boot(){
 }
 
 /* ============================================================
-   HEADSHOT RESOLUTION  — face-fill files only, tried in order until one
-   image actually loads, else initials:
-     1) the player's own file (player.hs stem, as .webp)
-     2) by NBA id from headshot_ids.json (normalized name) + the name
-        slugged the way nba-headshots names files (non-ASCII and
-        apostrophes dropped, e.g. "1629029-luka-doni"), plus the
-        accent-folded spelling
+   HEADSHOT RESOLUTION  — the player's own face-fill file (player.hs stem,
+   as .webp), else initials. build_teammates.py sets "hs" only when the
+   player's NBA id is certain, so there's no by-name guess here (a name
+   can belong to two NBA players: wrong face).
    ============================================================ */
-function hsSlugs(name){
-  const fold = s => s.replace(/['\u2019]/g,"").replace(/[^a-zA-Z0-9]+/g,"-").replace(/^-+|-+$/g,"").toLowerCase();
-  return [fold(name.replace(/[^\x00-\x7F]/g,"")), fold(name.normalize("NFKD").replace(/[\u0300-\u036f]/g,""))];
-}
 function headshotCandidates(name){
   const rec = BY_NAME[name];
-  const urls = [];
-  if(rec && rec.hs) urls.push(HEADSHOT_BASE + rec.hs.replace(/\.png$/,".webp"));   // (1) own file
-  const id = HEADSHOT_IDS[normName(name)];
-  if(id != null) for(const s of hsSlugs(name)) urls.push(`${HEADSHOT_BASE}${id}-${s}.webp`); // (2) by mapped id
-  return [...new Set(urls)];
+  return rec && rec.hs ? [HEADSHOT_BASE + rec.hs.replace(/\.png$/,".webp")] : [];
 }
 const urlCache = {};                 // url -> Promise<Image|null>
 function loadImg(url){
@@ -254,7 +231,7 @@ async function preloadHeads(names, onProgress){
   await Promise.all(uniq.map(async nm => {
     const img = await loadHead(nm);
     map[nm] = img;
-    if(!img) misses.push(nm + (headshotCandidates(nm).length ? " (had url, load failed)" : " (no id/hs)"));
+    if(!img) misses.push(nm + (headshotCandidates(nm).length ? " (had url, load failed)" : " (no photo)"));
     done++; if(onProgress) onProgress(done, uniq.length);
   }));
   if(misses.length) console.warn(`[headshots] ${misses.length}/${uniq.length} fell back to initials:`, misses.sort());
