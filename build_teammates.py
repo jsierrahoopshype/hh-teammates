@@ -10,7 +10,7 @@ Outputs:
   data/page_hashes.json    content hash + lastmod date per page (commit it; dates only move when content changes)
 
 Run:  python build_teammates.py
-Pages only, from the committed data (no CSVs):  python build_teammates.py --from-json
+Pages and headshots only, from the committed data (no CSVs):  python build_teammates.py --from-json
 Skip the static pages with:  python build_teammates.py --no-pages
 Set your live origin with:    python build_teammates.py --site https://jsierrahoopshype.github.io/hh-teammates
 """
@@ -36,24 +36,124 @@ AWARD_LABEL = {
     "All-Rookie First Team":"All-Rookie 1st Team","All-Rookie Second Team":"All-Rookie 2nd Team",
 }
 # Page headshot: nba-headshots' face-fill files, the one HoopsMatic headshot (face fills the circle).
-# The data's "hs" is the player's file stem plus ".png" (from data/headshots.json); face-fill uses the
-# same stems as .webp. og:image keeps the PNG in face/: social previews need an opaque image.
+# The data's "hs" is the player's file stem ("<nba_id>-<slug>") plus ".png", set by attach_headshots()
+# only when the player's NBA id is certain; face-fill uses the same stems as .webp.
+# og:image keeps the PNG in face/: social previews need an opaque image.
 HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face-fill/"
 OG_HS_BASE = "https://jsierrahoopshype.github.io/nba-headshots/players/headshots/face/"
 FACE_FILL_LIST = "https://raw.githubusercontent.com/jsierrahoopshype/nba-headshots/main/players/headshots/face-fill/.hashes.json"
+PLAYERS_ALL = "https://raw.githubusercontent.com/jsierrahoopshype/nba-headshots/main/players/metadata/players_all.json"
+
+def fetch_json(url):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=60) as r:
+        return json.loads(r.read())
 
 def load_face_fill():
     """The stems that have a face-fill file (public file, no key). None if it can't be fetched:
     then every photo is kept and the page's onerror shows initials for any that is missing."""
-    import urllib.request
     try:
-        with urllib.request.urlopen(FACE_FILL_LIST, timeout=60) as r:
-            stems=set(json.loads(r.read())["files"])
+        stems=set(fetch_json(FACE_FILL_LIST)["files"])
         print(f"face-fill list: {len(stems)} players")
         return stems
     except Exception as e:
         print(f"face-fill list not fetched ({e}); keeping every photo, initials if one fails to load")
         return None
+
+# ---- Which NBA id is this player? Only certain answers get a photo; anything else stays on initials. ----
+NAME_SUFFIXES = {"jr","sr","ii","iii","iv"}
+def base_name(n):
+    """normalized name without Jr./Sr./II/III/IV"""
+    return " ".join(w for w in n.split() if w not in NAME_SUFFIXES)
+def strip_birth_year(name):
+    """The stats data tells same-name players apart with a birth year: 'Kevin Porter (1950)'."""
+    return re.sub(r"\s*\(\d{4}\)\s*$","",name)
+def birth_year(name):
+    m=re.search(r"\((\d{4})\)\s*$",name)
+    return int(m.group(1)) if m else None
+
+def era_ok(nba_id, first, last, seasons_from=None, born=None):
+    """Can this NBA id belong to a career running first..last (season end years)? NBA.com hands out ids in
+    blocks by era, so some careers rule an id out for sure. Used only to rule ids out, never to pick one.
+      76000-79999  players who were done before 1996-97 (NBA.com's legacy block): last season <= 1998
+      1-4999       ids handed out 1996-2004 (latest debut seen: 2010, a draft-and-stash): first season <= 2012
+      200000-209999  ids handed out from 2005-06 on: first season >= 2005
+      1626000+     ids handed out from 2015-16 on: first season >= 2015
+    born (the data's "(1986)" birth year, when there is one): ids 1-999 went to the 1996-97 players and the
+    1996 draft (Kobe Bryant, 977, born 1978), so their players were born by 1980 (Reggie Williams (1986)
+    can't be 199, the 1987-97 Reggie Williams); ids 1000-4999 were handed out by 2004: born by 1987.
+    seasons_from (current players in nba-headshots) is NBA.com's first year for him: the data's first season
+    (an end year) can't come before it, and at most 5 years after it (Joel Embiid: 2014, first season 2017)."""
+    if 76000<=nba_id<80000 and last>1998: return False
+    if nba_id<5000 and first>2012: return False
+    if 200000<=nba_id<210000 and first<2005: return False
+    if nba_id>=1626000 and first<2015: return False
+    if born and nba_id<1000 and born>1980: return False
+    if born and nba_id<5000 and born>1987: return False
+    if seasons_from:
+        try:
+            if not int(seasons_from)<=first<=int(seasons_from)+5: return False
+        except ValueError: pass
+    return True
+
+def load_nba_index(ids_path, dupes_path, players_all):
+    """{base name: {nba_id: set of full normalized names}} over every NBA player: data/headshot_ids.json
+    (one id per name), data/headshot_ids_dupes.json (every id when several players share a name) and
+    nba-headshots' players_all.json (adds the newest players). Also {nba_id: seasons_from}."""
+    idx=defaultdict(lambda: defaultdict(set)); since={}
+    def add(name,i):
+        n=norm_name(name); idx[base_name(n)][int(i)].add(n)
+    for n,i in json.load(open(ids_path,encoding="utf-8")).items(): add(n,i)
+    if os.path.exists(dupes_path):
+        for n,v in json.load(open(dupes_path,encoding="utf-8")).items():
+            for i in v["all_ids"]: add(n,i)
+    for p in players_all:
+        add(p["full_name"],p["nba_id"])
+        if p.get("seasons_from"): since[int(p["nba_id"])]=p["seasons_from"]
+    return idx, since
+
+def match_nba_id(p, idx, since):
+    """(nba_id, None) when certain, else (None, why). Every NBA player sharing the name (with or without
+    Jr./Sr./II) is a candidate; a name that carries a suffix keeps only the exact-name ones when there are
+    any. Candidates whose id era can't fit the career are dropped; exactly one must be left."""
+    tn=norm_name(strip_birth_year(p["name"])); tb=base_name(tn)
+    cands=idx.get(tb,{})
+    if not cands: return None,"no NBA player by that name"
+    if tn!=tb:
+        exact={i:ns for i,ns in cands.items() if tn in ns}
+        if exact: cands=exact
+    yrs=p.get("years") or []
+    if not yrs: return None,"no seasons"
+    keep=[i for i in cands if era_ok(i,yrs[0],yrs[-1],since.get(i),birth_year(p["name"]))]
+    if len(keep)==1: return keep[0],None
+    if not keep: return None,f"no candidate fits {yrs[0]}-{yrs[-1]}: {sorted(cands)}"
+    return None,f"same name, can't tell apart: {sorted(keep)}"
+
+def attach_headshots(players, stems, idx, since):
+    """Set p["hs"] = '<stem>.png' for players whose NBA id is certain and who have a face-fill file;
+    remove it otherwise. An id claimed by two players goes to neither."""
+    stem_by_id={}
+    for s in stems:
+        head=s.split("-",1)[0]
+        if head.isdigit(): stem_by_id[int(head)]=s
+    found={}; why={}
+    for p in players:
+        i,r=match_nba_id(p,idx,since)
+        if i is None: why[p["name"]]=r
+        else: found[p["name"]]=i
+    claims=Counter(found.values())
+    for n,i in list(found.items()):
+        if claims[i]>1: why[n]=f"id {i} also matched another player"; del found[n]
+    before=sum(1 for p in players if p.get("hs")); hits=0
+    for p in players:
+        s=stem_by_id.get(found.get(p["name"]))
+        if s: p["hs"]=f"{s}.png"; hits+=1
+        else: p.pop("hs",None)
+    print(f"Headshots: {hits}/{len(players)} players have a face-fill photo (was {before}); "
+          f"{len(found)} NBA ids certain, {len(why)} not")
+    ambiguous={n:r for n,r in why.items() if not r.startswith("no NBA player")}
+    for n in sorted(ambiguous): print(f"  initials: {n} - {ambiguous[n]}")
+    return hits
 
 def face_fill_file(hs, stems):
     """'<stem>.png' -> '<stem>.webp' when face-fill has that player, else '' (initials)."""
@@ -80,16 +180,6 @@ def lab(a): return AWARD_LABEL.get(a, a)
 def norm_name(s):
     s=unicodedata.normalize("NFKD",s).encode("ascii","ignore").decode().lower()
     return re.sub(r"[^a-z0-9]+"," ",s).strip()
-def load_headshots(path):
-    if not os.path.exists(path): return {}
-    try: data=json.load(open(path,encoding="utf-8"))
-    except Exception: return {}
-    m={}
-    for p in data.get("players",[]):
-        fn=(p.get("headshot") or {}).get("filename")
-        if fn: m[norm_name(p.get("full_name",""))]=fn
-    return m
-
 def load(awards_path, stats_path):
     awards_by = defaultdict(list); rings = defaultdict(int); award_team = {}
     title_years = defaultdict(set)
@@ -307,7 +397,8 @@ def main():
     ap.add_argument("--stats",  default="All-Time_Database_2_0_-_RS_Stats__3_.csv")
     ap.add_argument("--out",    default="data/teammates.json")
     ap.add_argument("--site",   default="https://jsierrahoopshype.github.io/hh-teammates")
-    ap.add_argument("--headshots", default="data/headshots.json")
+    ap.add_argument("--ids", default="data/headshot_ids.json", help="normalized name -> NBA id")
+    ap.add_argument("--ids-dupes", default="data/headshot_ids_dupes.json", help="names several NBA players share -> all their ids")
     ap.add_argument("--no-pages", action="store_true")
     ap.add_argument("--hashes", default="data/page_hashes.json", help="per-page content hashes + lastmod dates (commit this)")
     ap.add_argument("--date", help="override the build date (YYYY-MM-DD) used for changed pages' <lastmod>")
@@ -316,27 +407,32 @@ def main():
     args=ap.parse_args()
 
     if args.from_json:
-        # Rebuild pages/sitemap from the committed data file (no CSVs needed); data is left untouched.
+        # Rebuild from the committed data file (no CSVs needed); only the players' headshots ("hs") are refreshed.
         with open(args.out,encoding="utf-8") as f: data=json.load(f)
         players,teams=data["players"],data["teams"]
         print(f"Loaded {args.out}: {len(players)} players")
     else:
         awards_by,rings,rosters,pseasons,pyears,teams,title_years=load(args.awards,args.stats)
         players=build_players(awards_by,rings,rosters,pseasons,pyears,title_years)
-        hs=load_headshots(args.headshots); hits=0
-        for p in players:
-            f=hs.get(norm_name(p["name"]))
-            if f: p["hs"]=f; hits+=1
-        print(f"Headshots attached: {hits}/{len(players)} players")
 
-        os.makedirs(os.path.dirname(args.out),exist_ok=True)
-        with open(args.out,"w",encoding="utf-8") as f:
-            json.dump({"scores":SCORES,"teams":teams,"players":players},f,ensure_ascii=False,separators=(",",":"))
-        print(f"Wrote {args.out}: {len(players)} players, {os.path.getsize(args.out)/1024:.0f} KB")
+    # Headshots: both public nba-headshots files are needed; if either can't be fetched, keep the "hs" already there.
+    stems=load_face_fill()
+    try: players_all=fetch_json(PLAYERS_ALL)["players"]
+    except Exception as e: players_all=None; print(f"players_all.json not fetched ({e})")
+    if stems is not None and players_all is not None:
+        idx,since=load_nba_index(args.ids,args.ids_dupes,players_all)
+        attach_headshots(players,stems,idx,since)
+    else:
+        print("Headshots left as they were")
+
+    os.makedirs(os.path.dirname(args.out),exist_ok=True)
+    with open(args.out,"w",encoding="utf-8") as f:
+        json.dump({"scores":SCORES,"teams":teams,"players":players},f,ensure_ascii=False,separators=(",",":"))
+    print(f"Wrote {args.out}: {len(players)} players, {os.path.getsize(args.out)/1024:.0f} KB")
 
     if not args.no_pages:
         os.makedirs("p",exist_ok=True)
-        site=args.site.rstrip("/"); hashes={}; stems=load_face_fill()
+        site=args.site.rstrip("/"); hashes={}
         for p in players:
             c=stub_content(p, site, stems); write_stub(c, "p"); hashes[p["slug"]]=content_hash(c)
         print(f"Wrote {len(players)} pre-rendered pages to p/")
