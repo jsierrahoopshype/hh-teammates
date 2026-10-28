@@ -51,5 +51,35 @@ class Match(unittest.TestCase):
         b.attach_headshots(ps, STEMS, self.idx, SINCE)
         self.assertEqual([p.get("hs") for p in ps], ["977-kobe-bryant.png", None, None, None, None])
 
+class DuplicateIdFiles(unittest.TestCase):
+    """nba-headshots has ids with two face-fill files (78049-bill-russell and 78049-jerry-west): the one
+    named after the player wins, whatever the order; no file with his name means initials."""
+    NBA = [("bill russell",78049),("jerry west",78497),("kevin garnett",708),("patrick ewing",121),
+           ("shaquille o neal",406),("paul pierce",1718),("glen rice",431),("dante exum",203957)]
+    STEMS = ["78049-jerry-west","78049-bill-russell","78497-oscar-robertson","78497-jerry-west",
+             "708-patrick-ewing","708-kevin-garnett","121-patrick-ewing","406-shaquille-oneal",
+             "1718-shaquille-oneal","1718-paul-pierce","431-shawn-kemp","431-glen-rice-x",
+             "203957-dant-exum","203957-dante-exum"]
+    def run_attach(self, stems):
+        idx = defaultdict(lambda: defaultdict(set))
+        for n,i in self.NBA: idx[b.base_name(n)][i].add(n)
+        ps = [P("Bill Russell",1957,1969), P("Jerry West",1961,1974), P("Kevin Garnett",1996,2016),
+              P("Patrick Ewing",1986,2002), P("Shaquille O'Neal",1993,2011), P("Paul Pierce",1999,2017),
+              P("Glen Rice",1990,2004), P("Dante Exum",2015,2026)]
+        b.attach_headshots(ps, set(stems), idx, {})
+        return [p.get("hs") for p in ps]
+    def test_named_file_wins_in_any_order(self):
+        want = ["78049-bill-russell.png","78497-jerry-west.png","708-kevin-garnett.png","121-patrick-ewing.png",
+                "406-shaquille-oneal.png","1718-paul-pierce.png",None,"203957-dante-exum.png"]
+        self.assertEqual(self.run_attach(self.STEMS), want)
+        self.assertEqual(self.run_attach(list(reversed(self.STEMS))), want)
+    def test_pick_stem(self):
+        self.assertEqual(b.pick_stem(["78049-bill-russell","78049-jerry-west"],"Bill Russell"), "78049-bill-russell")
+        self.assertEqual(b.pick_stem(["1718-paul-pierce","1718-shaquille-oneal"],"Shaquille O'Neal"), "1718-shaquille-oneal")
+        self.assertEqual(b.pick_stem(["1-a-b-jr","1-c-d"],"A. B. Jr. (1950)"), "1-a-b-jr")
+        self.assertIsNone(b.pick_stem(["431-shawn-kemp","431-glen-rice-x"],"Glen Rice"))   # no file with his name
+        self.assertEqual(b.pick_stem(["977-kobe-bryant"],"Kobe Bryant"), "977-kobe-bryant")  # one file: kept
+        self.assertEqual(b.name_key("Nikola Jokić"), b.name_key("nikola-jokic"))
+
 if __name__ == "__main__":
     unittest.main()
