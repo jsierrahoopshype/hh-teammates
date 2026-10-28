@@ -129,13 +129,36 @@ def match_nba_id(p, idx, since):
     if not keep: return None,f"no candidate fits {yrs[0]}-{yrs[-1]}: {sorted(cands)}"
     return None,f"same name, can't tell apart: {sorted(keep)}"
 
-def attach_headshots(players, stems, idx, since):
-    """Set p["hs"] = '<stem>.png' for players whose NBA id is certain and who have a face-fill file;
-    remove it otherwise. An id claimed by two players goes to neither."""
-    stem_by_id={}
+def name_key(s):
+    """A name or a file stem's name part, compared the way slugs are: accents stripped, punctuation
+    ignored, Jr./Sr./II/III/IV dropped. 'Shaquille O'Neal' and 'shaquille-oneal' both give 'shaquilleoneal'."""
+    s=unicodedata.normalize("NFKD",s).encode("ascii","ignore").decode().lower()
+    s=re.sub(r"[.'’`]","",s)                       # O'Neal, Jr. -> oneal, jr
+    return "".join(w for w in re.split(r"[^a-z0-9]+",s) if w and w not in NAME_SUFFIXES)
+
+def stems_by_id(stems):
+    """{nba_id: sorted list of face-fill stems '<id>-<name>'}; some ids have more than one file."""
+    out=defaultdict(list)
     for s in stems:
         head=s.split("-",1)[0]
-        if head.isdigit(): stem_by_id[int(head)]=s
+        if head.isdigit(): out[int(head)].append(s)
+    return {i:sorted(v) for i,v in out.items()}
+
+def pick_stem(cands, name):
+    """The face-fill stem for this player among his id's files. One file: that file. Two or more (the
+    shared repo has ids whose files carry different players' names): only the file whose name part
+    matches his name, else None (initials). Never by order or at random."""
+    if not cands: return None
+    if len(cands)==1: return cands[0]
+    want=name_key(strip_birth_year(name))
+    hits=[s for s in cands if name_key(s.split("-",1)[1] if "-" in s else "")==want]
+    return hits[0] if len(hits)==1 else None
+
+def attach_headshots(players, stems, idx, since):
+    """Set p["hs"] = '<stem>.png' for players whose NBA id is certain and who have a face-fill file;
+    remove it otherwise. An id claimed by two players goes to neither. An id with several files
+    gets the one named after the player (pick_stem)."""
+    stem_by_id=stems_by_id(stems)
     found={}; why={}
     for p in players:
         i,r=match_nba_id(p,idx,since)
@@ -146,7 +169,7 @@ def attach_headshots(players, stems, idx, since):
         if claims[i]>1: why[n]=f"id {i} also matched another player"; del found[n]
     before=sum(1 for p in players if p.get("hs")); hits=0
     for p in players:
-        s=stem_by_id.get(found.get(p["name"]))
+        s=pick_stem(stem_by_id.get(found.get(p["name"])),p["name"])
         if s: p["hs"]=f"{s}.png"; hits+=1
         else: p.pop("hs",None)
     print(f"Headshots: {hits}/{len(players)} players have a face-fill photo (was {before}); "
