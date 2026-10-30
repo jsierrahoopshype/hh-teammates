@@ -7,7 +7,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 PAGES = [os.path.join(ROOT, "index.html"), os.path.join(ROOT, "teammates-video.html")] + \
         sorted(glob.glob(os.path.join(ROOT, "p", "*.html")))
 LINES = ["Anything wrong? Email us at hoopsmatic@hoopsmatic.com",
-         "For business inquiries, contact us at ads@hoopsmatic.com"]
+         "For any other inquiry, contact us at ads@hoopsmatic.com"]
 
 def read(p):
     with open(p, encoding="utf-8") as f: return f.read()

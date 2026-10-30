@@ -314,7 +314,7 @@ def font_faces(prefix):
                          ("JetBrains Mono","jetbrains-mono-latin.woff2","400 800")))
 # Every page ends with these two lines (Jorge's site-wide footer), after the page's own content.
 CONTACT_LINES = (("Anything wrong? Email us at ","hoopsmatic@hoopsmatic.com"),
-                 ("For business inquiries, contact us at ","ads@hoopsmatic.com"))
+                 ("For any other inquiry, contact us at ","ads@hoopsmatic.com"))
 CONTACT_FOOTER = ('<footer class="contact">'
                   + "".join(f'<p>{t}<a href="mailto:{a}">{a}</a></p>' for t,a in CONTACT_LINES)
                   + '</footer>')
