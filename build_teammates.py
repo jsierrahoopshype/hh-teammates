@@ -12,7 +12,7 @@ Outputs:
 Run:  python build_teammates.py
 Pages and headshots only, from the committed data (no CSVs):  python build_teammates.py --from-json
 Skip the static pages with:  python build_teammates.py --no-pages
-Set your live origin with:    python build_teammates.py --site https://jsierrahoopshype.github.io/hh-teammates
+Set your live origin with:    python build_teammates.py --site https://hoopsmatic.com/teammates
 """
 import csv, json, os, argparse, unicodedata, re, html, hashlib, datetime
 from collections import defaultdict, Counter
@@ -434,7 +434,7 @@ def main():
     ap.add_argument("--awards", default="All-Time_Database_2_0_-_Awards.csv")
     ap.add_argument("--stats",  default="All-Time_Database_2_0_-_RS_Stats__3_.csv")
     ap.add_argument("--out",    default="data/teammates.json")
-    ap.add_argument("--site",   default="https://jsierrahoopshype.github.io/hh-teammates")
+    ap.add_argument("--site",   default="https://hoopsmatic.com/teammates")  # canonical, og:url, sitemap: hoopsmatic.com, never the github.io copy
     ap.add_argument("--ids", default="data/headshot_ids.json", help="normalized name -> NBA id")
     ap.add_argument("--ids-dupes", default="data/headshot_ids_dupes.json", help="names several NBA players share -> all their ids")
     ap.add_argument("--no-pages", action="store_true")
