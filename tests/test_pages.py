@@ -17,6 +17,13 @@ def visible_text(s):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", s)))
 
 class Pages(unittest.TestCase):
+    def test_hub_has_one_h1_as_sent(self):
+        # The hub's HTML as sent carries exactly one H1, the heading the app draws; it sits inside
+        # #view, which every view replaces whole, so the rendered page never has two.
+        body = re.sub(r"<script\b.*?</script>", " ", read(PAGES[0]), flags=re.S | re.I)
+        self.assertEqual(re.findall(r"<h1\b[^>]*>(.*?)</h1>", body), ["Teammates Score"])
+        self.assertIn('<div id="view"><div class="hdr"><h1>Teammates Score</h1></div>', read(PAGES[0]))
+
     def test_pages_found(self):
         self.assertGreater(len(PAGES), 1000, "player pages missing: run the build first")
 
