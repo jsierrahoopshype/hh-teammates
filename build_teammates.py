@@ -279,8 +279,6 @@ a{color:var(--accent);text-decoration:none}
 .phead{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem}
 .hs{flex:none;width:72px;height:72px;border-radius:50%;overflow:hidden;object-fit:cover;background:#e8e8ed}
 .hs.imgfail{display:none}
-.hs.ini{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.5rem;color:#8e8e93}
-.hs.ini[hidden]{display:none}
 .phead div{min-width:0}
 h1{font-size:1.65rem;font-weight:800;letter-spacing:-.03em;line-height:1.1}
 .rings{display:block;font-size:.95rem;margin-top:.3rem}
@@ -346,10 +344,9 @@ def content_hash(c):
 def write_stub(c, outdir):
     name=html.escape(c["name"]); desc=html.escape(c["desc"]); slug=c["slug"]
     def plural(n,one,many): return one if n==1 else many
-    # no face-fill file, or one that fails to load: the player's initials in the same circle
-    ini=f'<span class="hs ini" aria-hidden="true"{" hidden" if c["hs"] else ""}>{html.escape(initials(c["name"]))}</span>'
+    # no face-fill file, or one that fails to load: no picture at all (never initials)
     photo=(f'<img class="hs" src="{HS_BASE}{html.escape(c["hs"])}" alt="{name}" width="96" height="96" '
-           f'onerror="this.classList.add(\'imgfail\');this.nextElementSibling.hidden=false">' if c["hs"] else "")+ini
+           f'onerror="this.remove()">' if c["hs"] else "")
     rings=(f'<span class="rings" role="img" aria-label="{c["rings"]} NBA {plural(c["rings"],"title","titles")}">'
            f'{"🏆"*c["rings"]}</span>') if c["rings"] else ""
     items=""
