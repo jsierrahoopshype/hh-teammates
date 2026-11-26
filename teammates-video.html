@@ -312,8 +312,8 @@ function buildPlan(pA,pB){
     const hasRows = rowsA.length>0 || rowsB.length>0;
     const hasMarker = colA.type==="closing"||colA.type==="active"||colB.type==="closing"||colB.type==="active";
     const bothEmpty = !hasRows && !hasMarker;
-    const teamA = eA&&eA.length ? eA[eA.length-1].t : null;   // last team if traded mid-season
-    const teamB = eB&&eB.length ? eB[eB.length-1].t : null;
+    const teamA = eA&&eA.length ? eA.map(e=>e.t) : null;   // every team if traded mid-season
+    const teamB = eB&&eB.length ? eB.map(e=>e.t) : null;
     plan.push({ n, yA, yB, teamA, teamB, aOver, bOver, colA, colB, bothEmpty });
   }
   return plan;
@@ -643,12 +643,12 @@ function drawHeader(ctx, R, block, screenTop){
   ctx.font = nameFont(S*16);
   if(!block.aOver && block.colA.type!=="dim"){
     ctx.fillStyle=R.accent; ctx.textAlign="left";
-    const t=`${block.yA}${block.teamA?" · "+teamFull(block.teamA):""}`;
+    const t=`${block.yA}${block.teamA?" · "+block.teamA.map(teamFull).join(" / "):""}`;
     ctx.save(); fitText(ctx,t,G.leftColX1-G.leftColX0); ctx.fillText(t,G.leftColX0,cy); ctx.restore();
   }
   if(!block.bOver && block.colB.type!=="dim"){
     ctx.fillStyle=SIDE_B_TINT; ctx.textAlign="right";
-    const t=`${block.yB}${block.teamB?" · "+teamFull(block.teamB):""}`;
+    const t=`${block.yB}${block.teamB?" · "+block.teamB.map(teamFull).join(" / "):""}`;
     ctx.save(); fitText(ctx,t,G.rightColX1-G.rightColX0); ctx.fillText(t,G.rightColX1,cy); ctx.restore();
   }
   const ry = screenTop + block.headerH - Math.max(1,S*1.5);
