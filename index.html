@@ -304,6 +304,9 @@ function accSummary(awObj,limit=4){
   return parts.slice(0,limit).join(' · ');
 }
 function bestSeason(p){let b=null;for(const s of p.detail)if(!b||s.pts>b.pts)b=s;return b;}
+/* one entry per season year: a player traded mid-season has a detail row per team; sum them, keep every team */
+function seasonTotals(p){const m={};for(const s of p.detail){const e=m[s.y]||(m[s.y]={y:s.y,pts:0,ts:[]});e.pts+=s.pts;if(!e.ts.includes(s.t))e.ts.push(s.t);}return Object.values(m).sort((a,b)=>a.y-b.y);}
+function bestYear(p){let b=null;for(const s of seasonTotals(p))if(!b||s.pts>b.pts)b=s;return b;}
 function byAward(p){
   const g={};
   for(const s of p.detail)for(const mate of s.mates)mate.a.forEach((a,i)=>(g[a]=g[a]||[]).push({n:mate.n,y:s.y,t:s.t,p:mate.sp?mate.sp[i]:SCORES[a]}));
@@ -431,13 +434,13 @@ function renderPlayer(slug){
   if(!p){v.innerHTML=`${backHtml()}<div class="empty">Player not found.</div>`;return;}
   setMeta(`${p.name} — Teammates Score #${p.rank} all-time | HoopsMatic`,
     `${p.name} has a Teammates Score of ${fmt(p.score)}, #${p.rank} of all time. Every accolade his teammates won while they played together.`,`${SITE}/p/${p.slug}.html`);
-  const g=byAward(p),best=bestSeason(p),contrib=aggTeammates(p),topMate=contrib[0];
+  const g=byAward(p),best=bestYear(p),contrib=aggTeammates(p),topMate=contrib[0];
   const totalAcc=p.detail.reduce((n,s)=>n+s.mates.reduce((m,x)=>m+x.a.length,0),0);
   let html=`${backHtml()}
     ${pageSearch('pSearchT')}
     <div class="phead"><div>
       <h1>${esc(p.name)} ${trophies(p.rings)}</h1>
-      <div class="team">${p.seasons} seasons · ${p.detail.length} alongside an award winner${p.rings?` · ${p.rings} NBA ${p.rings>1?'titles':'title'}`:''}</div>
+      <div class="team">${p.seasons} seasons · ${seasonTotals(p).length} alongside an award winner${p.rings?` · ${p.rings} NBA ${p.rings>1?'titles':'title'}`:''}</div>
       <div class="pactions"><button class="btn primary" onclick="openPlayerCard('${p.slug}')">Share card</button>
         <div class="compare-inline"><label>Compare with…</label><input type="text" id="cmp" placeholder="type a player" autocomplete="off"><div class="ac" id="cmpac"></div></div></div>
     </div>
@@ -448,7 +451,7 @@ function renderPlayer(slug){
     </div></div>
     <div class="section"><h2>The headline</h2><div class="statline" style="gap:2.2rem">
       <div class="stat" style="text-align:left"><div class="num">${topMate?esc(topMate.n):'—'}</div><div class="lbl">Most valuable teammate${topMate?` · ${fmt(topMate.p)} pts / ${topMate.years.size} yrs`:''}</div></div>
-      <div class="stat" style="text-align:left"><div class="num">${best?best.y+' '+esc(teamName(best.t)):'—'}</div><div class="lbl">Most loaded season${best?` · ${fmt(best.pts)} pts`:''}</div></div>
+      <div class="stat" style="text-align:left"><div class="num">${best?best.y+' '+esc(best.ts.map(teamName).join(' / ')):'—'}</div><div class="lbl">Most loaded season${best?` · ${fmt(best.pts)} pts`:''}</div></div>
     </div></div>
     <div class="section"><h2>Every teammate accolade</h2><div class="hint">All ${totalAcc} accolades won by teammates while sharing a roster, most to least valuable, oldest to newest within each.</div>`;
   let any=false;
@@ -469,7 +472,7 @@ function renderPlayer(slug){
   wirePageSearch('pSearchT');wirePageSearch('pSearchB');
 }
 function seasonChart(p){
-  const byYear={}; for(const s of p.detail) byYear[s.y]=s.pts;
+  const byYear={}; for(const s of seasonTotals(p)) byYear[s.y]=s.pts;
   const titles=new Set(p.titleYears||[]);
   const yrs=p.years||[]; if(!yrs.length) return '';
   const max=Math.max(1,...yrs.map(y=>byYear[y]||0));
